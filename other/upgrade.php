@@ -2912,10 +2912,10 @@ function smf_mysql_free_result($rs)
 	return ($db_type == 'mysql') ? mysql_free_result($rs) : mysqli_free_result($rs);
 }
 
-function smf_mysql_insert_id($rs)
+function smf_mysql_insert_id()
 {
-	global $db_type;
-	return ($db_type == 'mysql') ? mysql_insert_id($rs) : mysqli_insert_id($rs);
+	global $db_type, $db_connection;
+	return ($db_type == 'mysql') ? mysql_insert_id($db_connection) : mysqli_insert_id($db_connection);
 }
 
 function smf_mysql_num_rows($rs)
