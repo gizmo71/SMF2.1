@@ -5929,7 +5929,7 @@ function MySQLConvertOldIp($targetTable, $oldCol, $newCol, $limit = 50000, $setS
 	$is_done = false;
 	while (!$is_done)
 	{
-		nextSubStep($substep);
+		nextSubstep($substep);
 
 		$request = $smcFunc['db_query']('', '
 			SELECT DISTINCT {raw:old_col}
