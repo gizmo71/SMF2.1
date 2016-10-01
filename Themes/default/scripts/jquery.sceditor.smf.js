@@ -180,7 +180,7 @@ $.sceditor.command.set(
 			if (url)
 			{
 				var text	= prompt(this._("Enter the displayed text:"), display || url) || url;
-				this.insertText("[url=" + url + "]" + text + "[/url]");
+				this.insertText("[url=\"" + url + "\"]" + text + "[/url]");
 			}
 		}
 	}
@@ -436,12 +436,16 @@ $.sceditor.plugins.bbcode.bbcode.set(
 			// make sure this link is not an e-mail, if it is return e-mail BBCode
 			if (url.substr(0, 7) === 'mailto:')
 				return '[email=' + url.substr(7) + ']' + content + '[/email]';
-			// make sure this link is not an ftp, if it is return ftp BBCode
-			else if (url.substr(0, 3) === 'ftp')
-				return '[ftp=' +  url + ']' + content + '[/ftp]';
 
 			if (element.attr('target') !== undefined)
-				return '[url=' + decodeURI(url) + ']' + content + '[/url]';
+				return '[url=\"' + decodeURI(url) + '\"]' + content + '[/url]';
+
+			// A mention?
+			else if (element.attr('data-mention') !== "undefined")
+			{
+				return '[member='+ element.attr('data-mention') +']'+ content.replace('@','') +'[/member]';
+			}
+
 			// Is this an attachment?
 			else if (element.attr('data-attachment') !== "undefined")
 			{
@@ -453,8 +457,9 @@ $.sceditor.plugins.bbcode.bbcode.set(
 
 				return '[attach'+attribs+']'+content+'[/attach]';
 			}
+
 			else
-				return '[iurl=' + decodeURI(url) + ']' + content + '[/iurl]';
+				return '[iurl=\"' + decodeURI(url) + '\"]' + content + '[/iurl]';
 		},
 		html: function (token, attrs, content) {
 			if (typeof attrs.defaultattr === "undefined" || attrs.defaultattr.length === 0)
@@ -626,3 +631,18 @@ $.sceditor.plugins.bbcode.bbcode.set('font', {
 		return '[font=' + font + ']' + content + '[/font]';
 	}
 });
+
+$.sceditor.plugins.bbcode.bbcode.set(
+	'member', {
+		isInline: true,
+		format: function ($element, content) {
+			return '[member='+ $element.attr('data-mention') +']'+ content.replace('@','') +'[/member]';
+		},
+		html: function (token, attrs, content) {
+			if (typeof attrs.defaultattr === "undefined" || attrs.defaultattr.length === 0)
+				attrs.defaultattr = content;
+
+			return '<a href="' + smf_scripturl +'?action=profile;u='+ attrs.defaultattr + '" class="mention" data-mention="'+ attrs.defaultattr + '">@'+ content.replace('@','') +'</a>';
+		}
+	}
+);

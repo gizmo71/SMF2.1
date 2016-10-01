@@ -1717,8 +1717,8 @@ VALUES ('xx', 'Standard', '0'),
 #
 
 INSERT INTO {$db_prefix}messages
-	(id_msg, id_msg_modified, id_topic, id_board, poster_time, subject, poster_name, poster_email, poster_ip, modified_name, body, icon)
-VALUES (1, 1, 1, 1, UNIX_TIMESTAMP(), '{$default_topic_subject}', 'Simple Machines', 'info@simplemachines.org', '127.0.0.1', '', '{$default_topic_message}', 'xx');
+	(id_msg, id_msg_modified, id_topic, id_board, poster_time, subject, poster_name, poster_email, modified_name, body, icon)
+VALUES (1, 1, 1, 1, UNIX_TIMESTAMP(), '{$default_topic_subject}', 'Simple Machines', 'info@simplemachines.org', '', '{$default_topic_message}', 'xx');
 # --------------------------------------------------------
 
 #
@@ -1762,7 +1762,7 @@ VALUES (-1, 'search_posts'),
 	(0, 'profile_blurb_own'),
 	(0, 'profile_displayed_name_own'),
 	(0, 'profile_signature_own'),
-	(0, 'profile_other_own'),
+	(0, 'profile_website_own'),
 	(0, 'profile_forum_own'),
 	(0, 'profile_extra_own'),
 	(0, 'profile_remove_own'),
@@ -1784,7 +1784,7 @@ VALUES (-1, 'search_posts'),
 	(2, 'profile_blurb_own'),
 	(2, 'profile_displayed_name_own'),
 	(2, 'profile_signature_own'),
-	(2, 'profile_other_own'),
+	(2, 'profile_website_own'),
 	(2, 'profile_forum_own'),
 	(2, 'profile_extra_own'),
 	(2, 'profile_remove_own'),
