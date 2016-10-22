@@ -1322,11 +1322,16 @@ function parse_bbc($message, $smileys = true, $cache_id = '', $parse_tags = arra
 
 					$data = strtr($data, array('<br>' => ''));
 					$scheme = parse_url($data, PHP_URL_SCHEME);
-					if (empty($scheme))
-						$data = 'http://' . ltrim($data, ':/');
-
-					if ($scheme != 'https' && $image_proxy_enabled)
-						$data = $boardurl . '/proxy.php?request=' . urlencode($data) . '&hash=' . md5($data . $image_proxy_secret);
+					if ($image_proxy_enabled)
+					{
+						if (empty($scheme))
+							$data = 'http://' . ltrim($data, ':/');
+												
+						if ($scheme != 'https')
+							$data = $boardurl . '/proxy.php?request=' . urlencode($data) . '&hash=' . md5($data . $image_proxy_secret);
+					}
+					elseif (empty($scheme))
+						$data = '//' . ltrim($data, ':/');
 				},
 				'disabled_content' => '($1)',
 			),
@@ -1340,11 +1345,16 @@ function parse_bbc($message, $smileys = true, $cache_id = '', $parse_tags = arra
 
 					$data = strtr($data, array('<br>' => ''));
 					$scheme = parse_url($data, PHP_URL_SCHEME);
-					if (empty($scheme))
+					if ($image_proxy_enabled)
+					{
+						if (empty($scheme))
+							$data = 'http://' . ltrim($data, ':/');
+												
+						if ($scheme != 'https')
+							$data = $boardurl . '/proxy.php?request=' . urlencode($data) . '&hash=' . md5($data . $image_proxy_secret);
+					}
+					elseif (empty($scheme))
 						$data = '//' . ltrim($data, ':/');
-
-					if (substr($data, 0, 8) != 'https://' && $image_proxy_enabled)
-						$data = $boardurl . '/proxy.php?request=' . urlencode($data) . '&hash=' . md5($data . $image_proxy_secret);
 				},
 				'disabled_content' => '($1)',
 			),
@@ -1650,7 +1660,9 @@ function parse_bbc($message, $smileys = true, $cache_id = '', $parse_tags = arra
 		{
 			if (isset($temp_bbc))
 				$bbc_codes = $temp_bbc;
-			usort($codes, 'sort_bbc_tags');
+			usort($codes, function ($a, $b) {
+				return strcmp($a['tag'], $b['tag']);
+			});
 			return $codes;
 		}
 
@@ -1873,12 +1885,7 @@ function parse_bbc($message, $smileys = true, $cache_id = '', $parse_tags = arra
 		|										#  or
 		(?<=^|\W)(?=//)							# A boundary followed by two slashes (for schemeless URLs like "//example.com")
 	)						
-	(?:
-		/{1,3}									# 1-3 slashes
-		|										#	or
-		[\p{L}\p{M}\p{N}%]						# Single letter or digit or "%"
-												# (Trying not to match e.g. "URI::Escape")
-	)
+	/{1,3}										# 1-3 slashes
 	|											#	or
 	www\d{0,3}[.]								# "www.", "www1.", "www2." … "www999."
 	|											#	or
@@ -2545,17 +2552,6 @@ function parse_bbc($message, $smileys = true, $cache_id = '', $parse_tags = arra
 	}
 
 	return $message;
-}
-
-/**
- * Helper function for usort(), used in parse_bbc().
- * @param array $a An array containing a tag
- * @param array $b Another array containing a tag
- * @return int A number indicating whether $a is bigger than $b
- */
-function sort_bbc_tags($a, $b)
-{
-	return strcmp($a['tag'], $b['tag']);
 }
 
 /**
@@ -4444,9 +4440,8 @@ function add_integration_function($hook, $function, $permanent = true, $file = '
  *
  * @param string $hook The complete hook name.
  * @param string $function The function name. Can be a call to a method via Class::method.
- * @params boolean $permanent Irrelevant for the function itself but need to declare it to match
+ * @param boolean $permanent Irrelevant for the function itself but need to declare it to match
  * @param string $file The filename. Must include one of the following wildcards: $boarddir, $sourcedir, $themedir, example: $sourcedir/Test.php
-add_integration_function
  * @param boolean $object Indicates if your class will be instantiated when its respective hook is called. If true, your function must be a method.
  * @see add_integration_function
  */
