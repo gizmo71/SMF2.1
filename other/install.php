@@ -1029,7 +1029,7 @@ function DatabasePopulation()
 	// If doing UTF8, select it. PostgreSQL requires passing it as a string...
 	if (!empty($db_character_set) && $db_character_set == 'utf8' && !empty($databases[$db_type]['utf8_support']))
 		$smcFunc['db_query']('', '
-			SET NAMES {'. ($db_type == 'postgresql' ? 'string' : 'raw') . ':utf8}',
+			SET NAMES {string:utf8}',
 			array(
 				'db_error_skip' => true,
 				'utf8' => 'utf8',
@@ -1527,7 +1527,7 @@ function DeleteInstall()
 
 	if (!empty($db_character_set) && !empty($databases[$db_type]['utf8_support']))
 		$smcFunc['db_query']('', '
-			SET NAMES {raw:db_character_set}',
+			SET NAMES {string:db_character_set}',
 			array(
 				'db_character_set' => $db_character_set,
 				'db_error_skip' => true,
@@ -1856,8 +1856,9 @@ function template_install_above()
 					</div>
 					<div id="progress_bar">
 						<div id="overall_text">', $incontext['overall_percent'], '%</div>
-						<div id="overall_progress" style="width: ', $incontext['overall_percent'], '%;">&nbsp;</div>
-						<div class="overall_progress">', $txt['upgrade_overall_progress'], '</div>
+						<div id="overall_progress" style="width: ', $incontext['overall_percent'], '%;">
+							<span>'. $txt['upgrade_overall_progress'], '</span>
+						</div>
 					</div>
 					<div id="main_screen" class="clear">
 						<h2>', $incontext['page_title'], '</h2>

@@ -602,7 +602,7 @@ function ConvertEntities()
 
 		// Get the maximum value for the primary key.
 		$request = $smcFunc['db_query']('', '
-			SELECT MAX({string:key})
+			SELECT MAX({identifier:key})
 			FROM {db_prefix}{raw:cur_table}',
 			array(
 				'key' => $primary_key,
@@ -1711,10 +1711,10 @@ function MaintainRecountPosts()
 
 		$request = $smcFunc['db_query']('', '
 			SELECT COUNT(DISTINCT m.id_member)
-			FROM ({db_prefix}messages AS m, {db_prefix}boards AS b)
+			FROM {db_prefix}messages AS m
+			JOIN {db_prefix}boards AS b on m.id_board = b.id_board
 			WHERE m.id_member != 0
-				AND b.count_posts = 0
-				AND m.id_board = b.id_board',
+				AND b.count_posts = 0',
 			array(
 			)
 		);
