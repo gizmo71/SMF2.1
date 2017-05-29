@@ -166,7 +166,6 @@ $txt['missing_topic_id'] = 'Topic ID is missing.';
 $txt['topic_doesnt_exist'] = 'Topic doesn\'t exist.';
 $txt['not_your_topic'] = 'You are not the owner of this topic.';
 $txt['board_doesnt_exist'] = 'The board does not exist.';
-$txt['no_span'] = 'The span feature is currently disabled.';
 $txt['invalid_days_numb'] = 'Invalid number of days to span.';
 
 $txt['moveto_noboards'] = 'There are no boards to move this topic to!';
@@ -445,4 +444,5 @@ $txt['json_JSON_ERROR_RECURSION'] = 'Json decode error: One or more recursive re
 $txt['json_JSON_ERROR_INF_OR_NAN'] = 'Json decode error: One or more NAN or INF values in the value to be encoded';
 $txt['json_JSON_ERROR_UNSUPPORTED_TYPE'] = 'Json decode error: A value of a type that cannot be encoded was given';
 $txt['json_unknown'] = 'Unknown error';
+
 ?>

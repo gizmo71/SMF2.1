@@ -7,7 +7,7 @@
  *
  * @package SMF
  * @author Simple Machines http://www.simplemachines.org
- * @copyright 2016 Simple Machines and individual contributors
+ * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
  * @version 2.1 Beta 3
@@ -166,7 +166,7 @@ function issueWarning($memID)
 				sendpm(array('to' => array($memID), 'bcc' => array()), $_POST['warn_sub'], $_POST['warn_body'], false, $from);
 
 				// Log the notice!
-				$smcFunc['db_insert']('',
+				$id_notice = $smcFunc['db_insert']('',
 					'{db_prefix}log_member_notices',
 					array(
 						'subject' => 'string-255', 'body' => 'string-65534',
@@ -174,9 +174,9 @@ function issueWarning($memID)
 					array(
 						$smcFunc['htmlspecialchars']($_POST['warn_sub']), $smcFunc['htmlspecialchars']($_POST['warn_body']),
 					),
-					array('id_notice')
+					array('id_notice'),
+					1
 				);
-				$id_notice = $smcFunc['db_insert_id']('{db_prefix}log_member_notices', 'id_notice');
 			}
 		}
 
@@ -302,7 +302,7 @@ function issueWarning($memID)
 					'style' => 'width: 20%;',
 				),
 				'data' => array(
-					'function' => function ($warning)
+					'function' => function($warning)
 					{
 						return $warning['issuer']['link'];
 					},
@@ -330,7 +330,7 @@ function issueWarning($memID)
 					'value' => $txt['profile_warning_previous_reason'],
 				),
 				'data' => array(
-					'function' => function ($warning) use ($scripturl, $txt)
+					'function' => function($warning) use ($scripturl, $txt)
 					{
 						$ret = '
 						<div class="floatleft">

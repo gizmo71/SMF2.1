@@ -8,7 +8,7 @@
  *
  * @package SMF
  * @author Simple Machines http://www.simplemachines.org
- * @copyright 2016 Simple Machines and individual contributors
+ * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
  * @version 2.1 Beta 3
@@ -44,7 +44,7 @@ function getBoardIndex($boardIndexOptions)
 		);
 
 	// Find all boards and categories, as well as related information.  This will be sorted by the natural order of boards and categories, which we control.
-	$result_boards = $smcFunc['db_query']('boardindex_fetch_boards', '
+	$result_boards = $smcFunc['db_query']('', '
 		SELECT' . ($boardIndexOptions['include_categories'] ? '
 			c.id_cat, c.name AS cat_name, c.description AS cat_desc,' : '') . '
 			b.id_board, b.name AS board_name, b.description,
@@ -53,7 +53,7 @@ function getBoardIndex($boardIndexOptions)
 			COALESCE(m.poster_time, 0) AS poster_time, COALESCE(mem.member_name, m.poster_name) AS poster_name,
 			m.subject, m.id_topic, COALESCE(mem.real_name, m.poster_name) AS real_name,
 			' . ($user_info['is_guest'] ? ' 1 AS is_read, 0 AS new_from,' : '
-			(COALESCE(lb.id_msg, 0) >= b.id_msg_updated) AS is_read, COALESCE(lb.id_msg, -1) + 1 AS new_from,' . ($boardIndexOptions['include_categories'] ? '
+			(CASE WHEN COALESCE(lb.id_msg, 0) >= b.id_msg_updated THEN 1 ELSE 0 END) AS is_read, COALESCE(lb.id_msg, -1) + 1 AS new_from,' . ($boardIndexOptions['include_categories'] ? '
 			c.can_collapse,' : '')) . '
 			COALESCE(mem.id_member, 0) AS id_member, mem.avatar, m.id_msg' . (!empty($settings['avatars_on_boardIndex']) ? ',  mem.email_address, mem.avatar, COALESCE(am.id_attach, 0) AS member_id_attach, am.filename AS member_filename, am.attachment_type AS member_attach_type' : '') . '
 		FROM {db_prefix}boards AS b' . ($boardIndexOptions['include_categories'] ? '
@@ -107,7 +107,7 @@ function getBoardIndex($boardIndexOptions)
 					'new' => false,
 					'css_class' => '',
 				);
-				$categories[$row_board['id_cat']]['link'] = '<a id="c' . $row_board['id_cat'] . '"></a>' . (!$context['user']['is_guest'] ? '<a href="' . $scripturl . '?action=unread;c='. $row_board['id_cat'] . '" title="' . sprintf($txt['new_posts_in_category'], strip_tags($row_board['cat_name'])) . '">' . $row_board['cat_name'] . '</a>' : $row_board['cat_name']);
+				$categories[$row_board['id_cat']]['link'] = '<a id="c' . $row_board['id_cat'] . '"></a>' . (!$context['user']['is_guest'] ? '<a href="' . $scripturl . '?action=unread;c=' . $row_board['id_cat'] . '" title="' . sprintf($txt['new_posts_in_category'], strip_tags($row_board['cat_name'])) . '">' . $row_board['cat_name'] . '</a>' : $row_board['cat_name']);
 			}
 
 			// If this board has new posts in it (and isn't the recycle bin!) then the category is new.

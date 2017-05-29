@@ -5,7 +5,7 @@
  *
  * @package SMF
  * @author Simple Machines http://www.simplemachines.org
- * @copyright 2016 Simple Machines and individual contributors
+ * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
  * @version 2.1 Beta 3
@@ -368,7 +368,7 @@ function showAlerts($memID)
 	// Prepare the pagination vars.
 	$maxIndex = 10;
 	$start = (int) isset($_REQUEST['start']) ? $_REQUEST['start'] : 0;
-	$count =  alert_count($memID);
+	$count = alert_count($memID);
 
 	// Get the alerts.
 	$context['alerts'] = fetch_alerts($memID, true, false, array('start' => $start, 'maxIndex' => $maxIndex));
@@ -580,7 +580,6 @@ function showPosts($memID)
 	list ($min_msg_member, $max_msg_member) = $smcFunc['db_fetch_row']($request);
 	$smcFunc['db_free_result']($request);
 
-	$reverse = false;
 	$range_limit = '';
 
 	if ($context['is_topics'])
@@ -833,7 +832,7 @@ function showAttachments($memID)
 			),
 		),
 		'data_check' => array(
-			'class' => function ($data)
+			'class' => function($data)
 			{
 				return $data['approved'] ? '' : 'approvebg';
 			}
@@ -1536,7 +1535,7 @@ function trackActivity($memID)
 				),
 				'data' => array(
 					'sprintf' => array(
-						'format' => '<a href="' . $scripturl . '?action=profile;area=tracking;sa=ip;searchip=%1$s;u=' . $memID. '">%1$s</a>',
+						'format' => '<a href="' . $scripturl . '?action=profile;area=tracking;sa=ip;searchip=%1$s;u=' . $memID . '">%1$s</a>',
 						'params' => array(
 							'ip' => false,
 						),
@@ -2102,18 +2101,18 @@ function TrackIP($memID = 0)
 		$context['whois_servers'] = array(
 			'afrinic' => array(
 				'name' => $txt['whois_afrinic'],
-				'url' => 'http://www.afrinic.net/cgi-bin/whois?searchtext=' . $context['ip'],
+				'url' => 'https://www.afrinic.net/cgi-bin/whois?searchtext=' . $context['ip'],
 				'range' => array(41, 154, 196),
 			),
 			'apnic' => array(
 				'name' => $txt['whois_apnic'],
-				'url' => 'http://wq.apnic.net/apnic-bin/whois.pl?searchtext=' . $context['ip'],
+				'url' => 'https://wq.apnic.net/apnic-bin/whois.pl?searchtext=' . $context['ip'],
 				'range' => array(58, 59, 60, 61, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124,
 					125, 126, 133, 150, 153, 163, 171, 202, 203, 210, 211, 218, 219, 220, 221, 222),
 			),
 			'arin' => array(
 				'name' => $txt['whois_arin'],
-				'url' => 'http://whois.arin.net/rest/ip/' . $context['ip'],
+				'url' => 'https://whois.arin.net/rest/ip/' . $context['ip'],
 				'range' => array(7, 24, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 96, 97, 98, 99,
 					128, 129, 130, 131, 132, 134, 135, 136, 137, 138, 139, 140, 142, 143, 144, 146, 147, 148, 149,
 					152, 155, 156, 157, 158, 159, 160, 161, 162, 164, 165, 166, 167, 168, 169, 170, 172, 173, 174,
@@ -2121,7 +2120,7 @@ function TrackIP($memID = 0)
 			),
 			'lacnic' => array(
 				'name' => $txt['whois_lacnic'],
-				'url' => 'http://lacnic.net/cgi-bin/lacnic/whois?query=' . $context['ip'],
+				'url' => 'https://lacnic.net/cgi-bin/lacnic/whois?query=' . $context['ip'],
 				'range' => array(186, 187, 189, 190, 191, 200, 201),
 			),
 			'ripe' => array(

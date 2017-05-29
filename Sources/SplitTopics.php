@@ -7,7 +7,7 @@
  *
  * @package SMF
  * @author Simple Machines http://www.simplemachines.org
- * @copyright 2016 Simple Machines and individual contributors
+ * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
  * @version 2.1 Beta 3
@@ -360,7 +360,7 @@ function SplitSelectTopics()
 		)
 	);
 	$context['messages'] = array();
-	for ($counter = 0; $row = $smcFunc['db_fetch_assoc']($request); $counter ++)
+	for ($counter = 0; $row = $smcFunc['db_fetch_assoc']($request); $counter++)
 	{
 		censorText($row['subject']);
 		censorText($row['body']);
@@ -400,7 +400,7 @@ function SplitSelectTopics()
 			)
 		);
 		$context['messages'] = array();
-		for ($counter = 0; $row = $smcFunc['db_fetch_assoc']($request); $counter ++)
+		for ($counter = 0; $row = $smcFunc['db_fetch_assoc']($request); $counter++)
 		{
 			censorText($row['subject']);
 			censorText($row['body']);
@@ -624,7 +624,7 @@ function splitTopic($split1_ID_TOPIC, $splitMessages, $new_subject)
 		fatal_lang_error('split_first_post', false);
 
 	// We're off to insert the new topic!  Use 0 for now to avoid UNIQUE errors.
-	$smcFunc['db_insert']('',
+	$split2_ID_TOPIC = $smcFunc['db_insert']('',
 			'{db_prefix}topics',
 			array(
 				'id_board' => 'int',
@@ -641,9 +641,9 @@ function splitTopic($split1_ID_TOPIC, $splitMessages, $new_subject)
 				(int) $id_board, $split2_firstMem, $split2_lastMem, 0,
 				0, $split2_replies, $split2_unapprovedposts, (int) $split2_approved, 0,
 			),
-			array('id_topic')
+			array('id_topic'),
+			1
 		);
-	$split2_ID_TOPIC = $smcFunc['db_insert_id']('{db_prefix}topics', 'id_topic');
 	if ($split2_ID_TOPIC <= 0)
 		fatal_lang_error('cant_insert_topic');
 
@@ -787,6 +787,27 @@ function splitTopic($split1_ID_TOPIC, $splitMessages, $new_subject)
 	$searchAPI = findSearchAPI();
 	if (is_callable(array($searchAPI, 'topicSplit')))
 		$searchAPI->topicSplit($split2_ID_TOPIC, $splitMessages);
+
+	// Maybe we want to let an external CMS know about this split
+	$split1 = array(
+		'num_replies' => $split1_replies,
+		'id_first_msg' => $split1_first_msg,
+		'id_last_msg' => $split1_last_msg,
+		'id_member_started' => $split1_firstMem,
+		'id_member_updated' => $split1_lastMem,
+		'unapproved_posts' => $split1_unapprovedposts,
+		'id_topic' => $split1_ID_TOPIC,
+	);
+	$split2 = array(
+		'num_replies' => $split2_replies,
+		'id_first_msg' => $split2_first_msg,
+		'id_last_msg' => $split2_last_msg,
+		'id_member_started' => $split2_firstMem,
+		'id_member_updated' => $split2_lastMem,
+		'unapproved_posts' => $split2_unapprovedposts,
+		'id_topic' => $split2_ID_TOPIC,
+	);
+	call_integration_hook('integrate_split_topic', array($split1, $split2, $new_subject, $id_board));
 
 	// Return the ID of the newly created topic.
 	return $split2_ID_TOPIC;
@@ -1098,7 +1119,7 @@ function MergeExecute($topics = array())
 			$firstTopic = $row['id_topic'];
 
 		// Lowest topic id gets selected as surviving topic id. We need to store this board so we can adjust the topic count (This one will not have a redirect topic)
-		if($row['id_topic'] < $lowestTopicId || empty($lowestTopicId) )
+		if ($row['id_topic'] < $lowestTopicId || empty($lowestTopicId))
 		{
 			$lowestTopicId = $row['id_topic'];
 			$lowestTopicBoard = $row['id_board'];
@@ -1404,7 +1425,7 @@ function MergeExecute($topics = array())
 			}
 
 			// Update subject search index
-			updateStats('subject',$this_old_topic,$redirect_subject);
+			updateStats('subject', $this_old_topic, $redirect_subject);
 		}
 	}
 
@@ -1709,6 +1730,24 @@ function MergeExecute($topics = array())
 	$searchAPI = findSearchAPI();
 	if (is_callable(array($searchAPI, 'topicMerge')))
 		$searchAPI->topicMerge($id_topic, $topics, $affected_msgs, empty($_POST['enforce_subject']) ? null : array($context['response_prefix'], $target_subject));
+
+	// Merging is the sort of thing an external CMS might want to know about
+	$merged_topic = array(
+		'id_board' => $target_board,
+		'is_sticky' => $is_sticky,
+		'approved' => $topic_approved,
+		'id_topic' => $id_topic,
+		'id_member_started' => $member_started,
+		'id_member_updated' => $member_updated,
+		'id_first_msg' => $first_msg,
+		'id_last_msg' => $last_msg,
+		'id_poll' => $target_poll,
+		'num_replies' => $num_replies,
+		'unapproved_posts' => $num_unapproved,
+		'num_views' => $num_views,
+		'subject' => $target_subject,
+	);
+	call_integration_hook('integrate_merge_topic', array($merged_topic, $updated_topics, $deleted_topics, $deleted_polls));
 
 	// Send them to the all done page.
 	redirectexit('action=mergetopics;sa=done;to=' . $id_topic . ';targetboard=' . $target_board);

@@ -1,4 +1,4 @@
-/* You can find detailed information at http://wiki.simplemachines.org/smf/Curve2_CSS
+/* You can find detailed information at https://wiki.simplemachines.org/smf/Curve2_CSS
 /* Index */
 html {
 	background: #3e5a78;
@@ -65,6 +65,9 @@ input, button, select {
 /* Height fixation */
 input, select {
 	height: 25px;
+}
+input[type="checkbox"] {
+	height: 13px;
 }
 select {
 	padding: 2px;
@@ -133,6 +136,11 @@ input.input_check, input.input_radio {
 /* Give disabled text input elements a different background color. */
 input[disabled].input_text {
 	background: #eee;
+}
+select[disabled] {
+	background: #eee;
+	color: #999;
+	opacity: 0.6;
 }
 /* Standard horizontal rule.. ([hr], etc.) */
 hr {
@@ -323,7 +331,7 @@ blockquote cite {
 	border-bottom: 1px solid #aaa;
 	font-size: 0.9em;
 }
-blockquote cite:before {
+blockquote cite::before {
 	color: #aaa;
 	font-size: 22px;
 	font-style: normal;
@@ -404,13 +412,26 @@ blockquote cite:before {
 	padding: 0 0 0 35px;
 	list-style-type: inherit;
 }
+.bbc_float {
+	margin-bottom: 1em;
+	/* default max-width to use if none was specified in the BBC */
+	max-width: 45%;
+}
+.bbc_float.floatleft {
+	margin-right: 1em;
+	clear: left;
+}
+.bbc_float.floatright {
+	margin-left: 1em;
+	clear: right;
+}
 /* No image should have a border when linked. */
 a img {
 	border: 0;
 }
 
 /* Those collapse and expand icons are wonderful. */
-.toggle_up:before, .toggle_down:before {
+.toggle_up::before, .toggle_down::before {
 	width: 17px;
 	height: 17px;
 	display: inline-block;
@@ -420,7 +441,7 @@ a img {
 	vertical-align: middle;
 	margin: -5px 5px 0 5px;
 }
-.toggle_down:before {
+.toggle_down::before {
 	background-position: 0 -17px;
 }
 
@@ -456,7 +477,7 @@ a img {
 	margin: 0;
 	clear: both;
 }
-.pages:after, .jump_to:after, .code:after {
+.pages::after, .jump_to::after, .code::after {
 	content: ": ";
 }
 #main_content_section .pagesection {
@@ -481,10 +502,10 @@ a img {
 	font-family: verdana, sans-serif;
 	font-weight: bold;
 }
-.current_page:before, .codeoperation:before {
+.current_page::before, .codeoperation::before {
 	content: "[";
 }
-.current_page:after, .codeoperation:after {
+.current_page::after, .codeoperation::after {
 	content: "]";
 }
 /* Go up and go down links. */
@@ -645,11 +666,6 @@ table.table_grid td {
 .title_bar th {
 	padding: 4px 8px;
 }
-/* this is for checkboxes to ensure they line well same elements on the line */
-/* @to-do change all checkall checkboxes on thead's to this */
-.title_bar .checkall {
-	padding: 4px 0;
-}
 .title_bar .sort_down, .title_bar .sort_up {
 	margin: -3px 0 0 2px;
 }
@@ -765,7 +781,7 @@ img.sort, .sort {
 }
 
 /* User information. */
-#profile_menu_top:after {
+#profile_menu_top::after {
 	content: ' \25BC';
 }
 .profile_user_info, .profile_user_avatar {
@@ -916,7 +932,7 @@ img.sort, .sort {
 .dropmenu li li:hover ul, .dropmenu li li ul {
 	left: -14px;
 }
-.dropmenu li li.subsections > a:after {
+.dropmenu li li.subsections > a::after {
 	position: absolute;
 	padding: 5px 0;
 	right: 10px;
@@ -936,7 +952,7 @@ img.sort, .sort {
 
 /* Styles for the standard button lists.
 ------------------------------------------------------- */
-.buttonlist {
+.buttonlist, .buttonrow {
 	z-index: 100;
 	padding: 5px 0 5px 0;
 	margin: 5px 0 5px 0;
@@ -986,6 +1002,21 @@ img.sort, .sort {
 .button.last {
 	margin-top: 9px;
 }
+/* In a .buttonrow, the buttons are joined together */
+.buttonrow {
+	margin-left: 5px;
+}
+.buttonrow .button {
+	display: table-cell;
+}
+.buttonrow .button:not(:first-child) {
+	border-top-left-radius: 0;
+	border-bottom-left-radius: 0;
+}
+.buttonrow .button:not(:last-child) {
+	border-top-right-radius: 0;
+	border-bottom-right-radius: 0;
+}
 
 /* Styles for the general looks of the theme.
 ------------------------------------------------------- */
@@ -1017,7 +1048,7 @@ img.sort, .sort {
 	background: #fff;
 	clear: both;
 }
-#top_section:after {
+#top_section::after {
 	content:"";
 	display: block;
 	clear: both;
@@ -1077,7 +1108,7 @@ img.sort, .sort {
 	padding: 2px 2px 12px 2px;
 	margin: 0 5%;
 }
-#header:after {
+#header::after {
 	content:"";
 	display: block;
 	clear: both;
@@ -1127,7 +1158,7 @@ img#smflogo {
 	padding: 12px 10px 2px 10px;
 	border-radius: 6px 6px 0 0;
 }
-#inner_section:after {
+#inner_section::after {
 	content:"";
 	display: block;
 	clear: both;
@@ -1228,7 +1259,7 @@ ul li.greeting {
 #main_content_section {
 	padding: 5px 12px 16px 12px;
 }
-#main_content_section:after {
+#main_content_section::after {
 	content:"";
 	display: block;
 	clear: both;
@@ -1441,38 +1472,61 @@ ul li.greeting {
 	padding: 6px;
 	clear: both;
 }
-#post_event #event_main input {
-	margin: 0 0 12px 0;
-	float: left;
+div.event_options {
+    line-height: 25px;
+    margin-top: 5px;
 }
-#post_event #event_main div.smalltext {
-	width: 34.6em;
-	float: right;
+#post_event span.label {
+	margin: 0 0.5em 0 2px;
+	min-width: 60px;
+	display: inline-block;
 }
-#post_event div.event_options {
-	float: right;
-}
-#post_event .event_main, .event_options {
-	padding: 0;
-	overflow: hidden;
-}
-#post_event ul.event_main li {
-	list-style-type: none;
-	margin: 2px 0;
+
+.event_options_left {
+	display: inline-block;
 	width: 49%;
-	float: left;
+	padding-right: 1em;
+	min-width: 238px;
+	box-sizing: border-box;
 }
-#post_event ul.event_options {
-	margin: 0;
-	padding: 0 0 8px 8px;
+.event_options_right {
+	display: inline-block;
+	width: 50%;
+	box-sizing: border-box;
 }
-#post_event ul.event_options li {
-	list-style-type: none;
-	margin: 0;
-	float: left;
+.event_options_left div, .event_options_right div {
+    min-height: 25px;
+    margin-bottom: 5px;
 }
-#post_event #event_main select, #post_event ul.event_options li select, #post_event ul.event_options li .input_check {
-	margin: 0 12px 0 0;
+
+#post_event #event_main input {
+    margin: 0;
+}
+#evtitle {
+    max-width: 100%;
+}
+#event_time_input {
+    clear: left;
+}
+#event_time_input input[type="text"] {
+	width: 80px;
+	display: inline-block;
+}
+#post_event input[type="checkbox"] {
+    height: auto;
+    vertical-align: baseline;
+}
+#post_event input[disabled].input_text {
+	color: transparent;
+}
+#post_event select, #event_options input[type="text"], #tz {
+    max-width: calc(100% - 75px);
+}
+#post_event select, #event_location {
+    width: calc(100% - 75px);
+}
+#post_event .input_check + select {
+    max-width: calc(100% - 95px);
 }
 
 /* Styles for the recent messages section.
@@ -1614,11 +1668,6 @@ dl.register_form dd {
 
 /* Styles for maintenance mode.
 ------------------------------------------------------- */
-#maintenance_mode {
-	width: 75%;
-	min-width: 520px;
-	text-align: left;
-}
 #maintenance_mode img.floatleft {
 	margin-right: 12px;
 }
@@ -1634,6 +1683,9 @@ dl.register_form dd {
 	padding: 0 0 12px 0;
 }
 #admin_login .centertext a.help img {
+	vertical-align: middle;
+}
+.custom_field a img {
 	vertical-align: middle;
 }
 
@@ -2000,7 +2052,7 @@ tr.windowbg td, tr.windowbg2 td, .table_grid tr td {
 	width: 80%;
 	margin: auto;
 }
-.errorbox:before, .noticebox:before, .infobox:before {
+.errorbox::before, .noticebox::before, .infobox::before {
 	width: 16px;
 	height: 16px;
 	background: url(../images/generic_icons.png) no-repeat -57px -83px;
@@ -2043,10 +2095,10 @@ tr.windowbg td, tr.windowbg2 td, .table_grid tr td {
 /* Styles for info boxes
 ------------------------------------------------- */
 
-.noticebox:before {
+.noticebox::before {
 	background-position: -83px -83px;
 }
-.infobox:before {
+.infobox::before {
 	background-position: -161px -83px;
 }
 .noticebox {
@@ -2473,7 +2525,7 @@ dl.addrules dt.floatleft {
 ------------------------------------------------- */
 #mlist_search {
 	margin: auto;
-	width: 500px;
+	max-width: 500px;
 }
 #mlist .selected {
 	white-space: nowrap;
@@ -2605,15 +2657,14 @@ dl.addrules dt.floatleft {
 	box-shadow: 0 3px 6px rgba(0,0,0,0.5);
 	border: 1px solid #777;
 	border-radius: 7px 7px 3px 3px;
-	max-height: none!important; /* Is this declaration necessary? None is the default anyway. */
-	overflow: visible!important;
+	overflow: visible !important;
 	background: #FFFFFF;
 	top: 15%;
 	margin: 0 auto;
 }
 .popup_heading {
 	margin: 0;
-	padding: 10px 4px;
+	padding: 10px 8px;
 	color: #bf6900;
 	background: none;
 }
@@ -2826,7 +2877,6 @@ h3 .collapse {
 	border-left: 1px solid #DDD;
 	border-right: 1px solid #DDD;
 	text-align: center;
-	min-height: 3em;
 	margin: 3px 0 0;
 }
 .lastpost {
@@ -2837,8 +2887,7 @@ h3 .collapse {
 	margin: 3px 0 0 0;
 }
 .board_icon, .info, .board_stats, .lastpost {
-	min-height: 4.5em;
-	display: table-cell;
+	display: inline-block;
 	vertical-align: middle;
 }
 .main_container {
@@ -2859,10 +2908,10 @@ h3 .collapse {
 .children p {
 	font-size: 0.9em;
 }
-.children a:after {
+.children a::after {
 	content: ", ";
 }
-.children a:last-of-type:after {
+.children a:last-of-type::after {
 	content: "";
 }
 p.moderators {
@@ -2947,7 +2996,7 @@ span.postby {
 #description_board h3, #description_board p {
 	display: inline-block;
 }
-#description_board h3:after {
+#description_board h3::after {
 	content: ' - ';
 }
 /* Topic list */
@@ -2956,10 +3005,8 @@ span.postby {
 	border-radius: 0;
 }
 #topic_header div {
-	height: 2em;
 	font-weight: bold;
 	font-size: 1em;
-	margin: 0;
 	padding: 0;
 }
 #topic_header input {
@@ -2976,7 +3023,6 @@ span.postby {
 	padding: 0;
 	margin: 0;
 	overflow: hidden;
-	min-height: 3.5em;
 }
 .icon img, .moderation input {
 	margin-top: 15px;
@@ -2985,12 +3031,11 @@ span.postby {
 	border: none;
 }
 .moderation {
-	display: table-cell;
+	display: inline-block;
 	min-width: 35px;
 	width: 3%;
 	vertical-align: middle;
 	text-align: right;
-	padding: 0 5px 0 0 !important;
 }
 /* Quick moderation selects and submit */
 #quick_actions {
@@ -3001,7 +3046,7 @@ span.postby {
 	margin: 1px 4px 0 4px;
 }
 /* Icons and jump to */
-#topic_icons:before {
+#topic_icons::before {
 	display: block;
 	height: 8px;
 	clear: both;
@@ -3103,6 +3148,14 @@ div#pollmoderation {
 	width: 65%;
 }
 
+/* Linked events */
+.event_title {
+	font-size: larger;
+}
+.event_title + a {
+	margin-left: 1em;
+}
+
 /* On to the posts */
 #forumposts {
 	clear: both;
@@ -3123,7 +3176,7 @@ div#pollmoderation {
 	padding: 2px 0;
 }
 /* poster and postarea + moderation area underneath */
-.post_wrapper:after {
+.post_wrapper::after {
 	content: "";
 	display: block;
 	clear: both;
@@ -3187,11 +3240,10 @@ div#pollmoderation {
 	clear: right;
 }
 .messageicon {
-	float: left;
-	margin: -5px 6px -6px 0;
+	display: inline-block;
 }
 .messageicon img {
-	padding: 0 3px 0 3px;
+	vertical-align: middle;
 }
 .keyinfo h5 {
 	padding: 1px 0 5px 0;
@@ -3205,20 +3257,33 @@ div#pollmoderation {
 	padding: 0 12px 0 0; /* Deprecated? */
 }
 .keyinfo h5 .modified {
-	float: right;
 	color: #333;
 	font-weight: normal;
+	font-style: italic;
 	padding: 2px 4px 0 4px;
+}
+.mvisible::before {
+	content: "« ";
+}
+.mvisible::after {
+	content: " »";
+}
+#reason::before {
+	content: " - ";
 }
 .subject_title a {
 	font-size: 0.9em;
 	color: #333;
 	font-weight: bold;
 }
+.subject_hidden a {
+	display: none;
+}
 .page_number {
 	color: #ad6825;
 	font-weight: bold;
 	opacity: 0.4;
+	padding: 2px 0 0 4px;
 }
 .inner {
 	padding: 7px 8px 2px 2px;
@@ -3238,6 +3303,8 @@ img.smiley {
 .attached {
 	padding: 0 6px 8px 6px;
 	max-width: 100%;
+	display:inline-block;
+	vertical-align:top;
 }
 .attachments_top {
 	margin: 0 auto;
@@ -3535,10 +3602,10 @@ p.information img {
 	font-size: 0.75em;
 	margin: 0 0 0 5px;
 }
-.topic_pages:before {
+.topic_pages::before {
 	content: " «";
 }
-.topic_pages:after {
+.topic_pages::after {
 	content: " »"
 }
 /* Mentions */
@@ -3631,6 +3698,9 @@ p.information img {
 }
 .action_who select {
 	margin-top: -1px !important;
+}
+span.member.hidden {
+	font-style: italic;
 }
 
 /* Icons (converted from img to css) */
@@ -3744,29 +3814,57 @@ h3.profile_hd {
 	transform: translate(-50%, -50%);
 }
 
-#au-previews div.descbox div,
-#au-previews div.errorbox div,
-#au-previews div.infobox div{
-	display:inline-block;
-	width:32%;
-	min-height:30px;
-	vertical-align: middle;
+.dz-image-preview {
+	display: flex;
+	flex-flow: row wrap;
+	justify-content: space-between;
+	align-items: center;
 }
-.attach-info p.progressBar, .attach-info p.attached_BBC, a#attach-cancelAll, a#attach-uploadAll{
-	display:none;
+#au-previews div.descbox > div,
+#au-previews div.errorbox > div,
+#au-previews div.infobox > div{
+	padding: 10px;
+	box-sizing: border-box;
 }
-p.attached_BBC a.insertBBC
-{
-	margin:0;
+#au-previews .attach-preview {
+	flex: 0 0 auto;
+	width: 170px;
 }
-
-.attach-info p, .attach-info field{
-	display:inline-block;
+#au-previews .attach-info {
+	flex: 1 1 auto;
+	width: 250px;
 }
-#attachUpload{
+#au-previews .attach-ui {
+	min-height: 36px;
+}
+input[name="attachBBC"] {
+	width: 100%;
+	margin-top: 10px;
+}
+.attach-info .progressBar, .attach-info .attached_BBC, a#attach-cancelAll, a#attach-uploadAll {
+	display: none;
+}
+.attached_BBC_width_height label {
+	min-width: 100px;
+	display: inline-block;
+}
+.attached_BBC_width, .attached_BBC_height {
+	margin: 10px 1em 0 0;
+	display: inline-block;
+}
+a.button_submit {
+	margin-top:15px;
+	text-decoration: none;
+	display: inline-block;
+	min-width: 0;
+}
+.attach-info input[type="number"] {
+	width: 5em;
+}
+#attachUpload {
 	min-height:50px;
 }
-#total-progress{
+#total-progress {
 	width:50%;
 	display:none;
 }
@@ -3790,11 +3888,11 @@ p.attached_BBC a.insertBBC
 	background-color: #34c2e3;
 	background-size: 30px 30px;
 	background-image: linear-gradient(135deg, rgba(255, 255, 255, .15) 25%, transparent 25%, transparent 50%, rgba(255, 255, 255, .15) 50%, rgba(255, 255, 255, .15) 75%, transparent 75%, transparent);
-	width:0px;
+	width: 0px;
 }
 
 #maxFiles_progress, #maxFiles_progress_text {
-	display:none;
+	display: none;
 }
 .progress_yellow span {
 	background-color: #fecf23;
@@ -3837,4 +3935,10 @@ p.attached_BBC a.insertBBC
 }
 .windowbg2.noup {
 	box-shadow: none;
+}
+
+/* Make the reCAPTCHA dialog centered to match the positioning of the built-in verification */
+.g-recaptcha
+{
+	display: inline-block;
 }

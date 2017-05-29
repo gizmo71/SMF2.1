@@ -8,7 +8,7 @@
  *
  * @package SMF
  * @author Simple Machines http://www.simplemachines.org
- * @copyright 2016 Simple Machines and individual contributors
+ * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
  * @version 2.1 Beta 3
@@ -70,7 +70,7 @@ function SaveDraft(&$post_errors)
 		$draft['subject'] = $smcFunc['substr']($draft['subject'], 0, 100);
 
 	// Modifying an existing draft, like hitting the save draft button or autosave enabled?
-	if (!empty($id_draft) && !empty($draft_info) && $draft_info['id_member'] == $user_info['id'])
+	if (!empty($id_draft) && !empty($draft_info))
 	{
 		$smcFunc['db_query']('', '
 			UPDATE {db_prefix}user_drafts
@@ -85,7 +85,7 @@ function SaveDraft(&$post_errors)
 				locked = {int:locked},
 				is_sticky = {int:is_sticky}
 			WHERE id_draft = {int:id_draft}',
-			array (
+			array(
 				'id_topic' => $topic_id,
 				'id_board' => $board,
 				'poster_time' => time(),
@@ -109,7 +109,7 @@ function SaveDraft(&$post_errors)
 	// otherwise creating a new draft
 	else
 	{
-		$smcFunc['db_insert']('',
+		$id_draft = $smcFunc['db_insert']('',
 			'{db_prefix}user_drafts',
 			array(
 				'id_topic' => 'int',
@@ -139,11 +139,9 @@ function SaveDraft(&$post_errors)
 			),
 			array(
 				'id_draft'
-			)
+			),
+			1
 		);
-
-		// get the id of the new draft
-		$id_draft = $smcFunc['db_insert_id']('{db_prefix}user_drafts', 'id_draft');
 
 		// everything go as expected?
 		if (!empty($id_draft))
@@ -221,7 +219,7 @@ function SavePMDraft(&$post_errors, $recipientList)
 		$draft['subject'] = $smcFunc['substr']($draft['subject'], 0, 100);
 
 	// Modifying an existing PM draft?
-	if (!empty($id_pm_draft) && !empty($draft_info) && $draft_info['id_member'] == $user_info['id'])
+	if (!empty($id_pm_draft) && !empty($draft_info))
 	{
 		$smcFunc['db_query']('', '
 			UPDATE {db_prefix}user_drafts
@@ -251,7 +249,7 @@ function SavePMDraft(&$post_errors, $recipientList)
 	// otherwise creating a new PM draft.
 	else
 	{
-		$smcFunc['db_insert']('',
+		$id_pm_draft = $smcFunc['db_insert']('',
 			'{db_prefix}user_drafts',
 			array(
 				'id_reply' => 'int',
@@ -273,11 +271,9 @@ function SavePMDraft(&$post_errors, $recipientList)
 			),
 			array(
 				'id_draft'
-			)
+			),
+			1
 		);
-
-		// get the new id
-		$id_pm_draft = $smcFunc['db_insert_id']('{db_prefix}user_drafts', 'id_draft');
 
 		// everything go as expected, if not toss back an error
 		if (!empty($id_pm_draft))
@@ -324,7 +320,8 @@ function ReadDraft($id_draft, $type = 0, $check = true, $load = false)
 
 	// load in this draft from the DB
 	$request = $smcFunc['db_query']('', '
-		SELECT *
+		SELECT is_sticky, locked, smileys_enabled, icon, body , subject,
+			id_board, id_draft, id_reply, to_list
 		FROM {db_prefix}user_drafts
 		WHERE id_draft = {int:id_draft}' . ($check ? '
 			AND id_member = {int:id_member}' : '') . '
@@ -348,7 +345,6 @@ function ReadDraft($id_draft, $type = 0, $check = true, $load = false)
 	$smcFunc['db_free_result']($request);
 
 	// Load it up for the templates as well
-	$recipients = array();
 	if (!empty($load))
 	{
 		if ($type === 0)
@@ -360,7 +356,7 @@ function ReadDraft($id_draft, $type = 0, $check = true, $load = false)
 			$context['icon'] = !empty($draft_info['icon']) ? $draft_info['icon'] : 'xx';
 			$context['message'] = !empty($draft_info['body']) ? str_replace('<br>', "\n", un_htmlspecialchars(stripslashes($draft_info['body']))) : '';
 			$context['subject'] = !empty($draft_info['subject']) ? stripslashes($draft_info['subject']) : '';
-			$context['board'] = !empty($draft_info['board_id']) ? $draft_info['id_board'] : '';
+			$context['board'] = !empty($draft_info['id_board']) ? $draft_info['id_board'] : '';
 			$context['id_draft'] = !empty($draft_info['id_draft']) ? $draft_info['id_draft'] : 0;
 		}
 		elseif ($type === 1)
@@ -410,7 +406,7 @@ function DeleteDraft($id_draft, $check = true)
 		DELETE FROM {db_prefix}user_drafts
 		WHERE id_draft IN ({array_int:id_draft})' . ($check ? '
 			AND  id_member = {int:id_member}' : ''),
-		array (
+		array(
 			'id_draft' => $id_draft,
 			'id_member' => empty($user_info['id']) ? -1 : $user_info['id'],
 		)
@@ -444,7 +440,7 @@ function ShowDrafts($member_id, $topic = false, $draft_type = 0)
 
 	// load the drafts this user has available
 	$request = $smcFunc['db_query']('', '
-		SELECT *
+		SELECT subject, poster_time, id_board, id_topic, id_draft
 		FROM {db_prefix}user_drafts
 		WHERE id_member = {int:id_member}' . ((!empty($topic) && empty($draft_type)) ? '
 			AND id_topic = {int:id_topic}' : (!empty($topic) ? '
@@ -468,18 +464,24 @@ function ShowDrafts($member_id, $topic = false, $draft_type = 0)
 
 		// Post drafts
 		if ($draft_type === 0)
+		{
+			$tmp_subject = shorten_subject(stripslashes($row['subject']), 24); 
 			$context['drafts'][] = array(
-				'subject' => censorText(shorten_subject(stripslashes($row['subject']), 24)),
+				'subject' => censorText($tmp_subject),
 				'poster_time' => timeformat($row['poster_time']),
-				'link' => '<a href="' . $scripturl . '?action=post;board=' . $row['id_board'] . ';' . (!empty($row['id_topic']) ? 'topic='. $row['id_topic'] .'.0;' : '') . 'id_draft=' . $row['id_draft'] . '">' . $row['subject'] . '</a>',
+				'link' => '<a href="' . $scripturl . '?action=post;board=' . $row['id_board'] . ';' . (!empty($row['id_topic']) ? 'topic=' . $row['id_topic'] . '.0;' : '') . 'id_draft=' . $row['id_draft'] . '">' . $row['subject'] . '</a>',
 			);
+		}
 		// PM drafts
 		elseif ($draft_type === 1)
+		{
+			$tmp_subject = shorten_subject(stripslashes($row['subject']), 24);
 			$context['drafts'][] = array(
-				'subject' => censorText(shorten_subject(stripslashes($row['subject']), 24)),
+				'subject' => censorText($tmp_subject),
 				'poster_time' => timeformat($row['poster_time']),
 				'link' => '<a href="' . $scripturl . '?action=pm;sa=send;id_draft=' . $row['id_draft'] . '">' . (!empty($row['subject']) ? $row['subject'] : $txt['drafts_none']) . '</a>',
 			);
+		}
 	}
 	$smcFunc['db_free_result']($request);
 }

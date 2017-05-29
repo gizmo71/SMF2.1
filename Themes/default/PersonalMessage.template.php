@@ -4,7 +4,7 @@
  *
  * @package SMF
  * @author Simple Machines http://www.simplemachines.org
- * @copyright 2016 Simple Machines and individual contributors
+ * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
  * @version 2.1 Beta 3
@@ -415,7 +415,6 @@ function template_folder()
 
 			if (!empty($message['is_replied_to']))
 				echo '
-					<br><span class="smalltext">&#171; ', $txt['pm_is_replied_to'], ' &#187;</span>
 					<br><span class="smalltext">&#171; ', $context['folder'] == 'sent' ? $txt['pm_sent_is_replied_to'] : $txt['pm_is_replied_to'], ' &#187;</span>';
 
 			echo '
@@ -1917,11 +1916,6 @@ function template_showPMDrafts()
 		<div class="pagesection">
 			<span>', $context['page_index'], '</span>
 		</div>';
-
-	// Button shortcuts
-	$edit_button = create_button('modify_inline.png', 'draft_edit', 'draft_edit', 'class="centericon"');
-	$remove_button = create_button('delete.png', 'draft_delete', 'draft_delete', 'class="centericon"');
-
 
 	// No drafts? Just show an informative message.
 	if (empty($context['drafts']))

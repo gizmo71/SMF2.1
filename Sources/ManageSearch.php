@@ -7,7 +7,7 @@
  *
  * @package SMF
  * @author Simple Machines http://www.simplemachines.org
- * @copyright 2016 Simple Machines and individual contributors
+ * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
  * @version 2.1 Beta 3
@@ -231,17 +231,7 @@ function EditSearchMethod()
 				)
 			);
 
-			$request = $smcFunc['db_query']('','
-				SHOW default_text_search_config',
-				array()
-			);
-
-			if ($request !== false && $smcFunc['db_num_rows']($request) == 1)
-			{
-				$row = $smcFunc['db_fetch_assoc']($request);
-				$language_ftx = $row['default_text_search_config'];
-			}
-
+			$language_ftx = $smcFunc['db_search_language']();
 
 			$smcFunc['db_query']('', '
 				CREATE INDEX {db_prefix}messages_ftx ON {db_prefix}messages
@@ -341,7 +331,7 @@ function EditSearchMethod()
 	);
 
 	// Get some info about the messages table, to show its size and index size.
-	if ($db_type == 'mysql' || $db_type == 'mysqli')
+	if ($db_type == 'mysql')
 	{
 		if (preg_match('~^`(.+?)`\.(.+?)$~', $db_prefix, $match) !== 0)
 			$request = $smcFunc['db_query']('', '
@@ -426,8 +416,8 @@ function EditSearchMethod()
 			WHERE t.schemaname= {string:schema} and (
 				indexname = {string:messages_ftx} OR indexname = {string:log_search_words} )',
 			array(
-				'messages_ftx' => $db_prefix. 'messages_ftx',
-				'log_search_words' => $db_prefix. 'log_search_words',
+				'messages_ftx' => $db_prefix . 'messages_ftx',
+				'log_search_words' => $db_prefix . 'log_search_words',
 				'schema' => 'public',
 			)
 		);
@@ -442,7 +432,7 @@ function EditSearchMethod()
 					$context['table_info']['index_length'] = (int) $row['index_size'];
 					$context['table_info']['fulltext_length'] = (int) $row['index_size'];
 				}
-				elseif ($row['indexname'] == $db_prefix. 'log_search_words')
+				elseif ($row['indexname'] == $db_prefix . 'log_search_words')
 				{
 					$context['table_info']['index_length'] = (int) $row['index_size'];
 					$context['table_info']['custom_index_length'] = (int) $row['index_size'];
@@ -799,7 +789,7 @@ function detectFulltextIndex()
 	// We need this for db_get_version
 	db_extend();
 
-	if ($smcFunc['db_title'] == 'PostgreSQL'){
+	if ($smcFunc['db_title'] == 'PostgreSQL') {
 		$request = $smcFunc['db_query']('', '
 			SELECT
 				indexname
@@ -814,7 +804,7 @@ function detectFulltextIndex()
 			WHERE t.schemaname= {string:schema} and indexname = {string:messages_ftx}',
 			array(
 				'schema' => 'public',
-				'messages_ftx' => $db_prefix.'messages_ftx',
+				'messages_ftx' => $db_prefix . 'messages_ftx',
 			)
 		);
 		while ($row = $smcFunc['db_fetch_assoc']($request))

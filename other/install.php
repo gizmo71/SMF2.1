@@ -5,7 +5,7 @@
  *
  * @package SMF
  * @author Simple Machines http://www.simplemachines.org
- * @copyright 2016 Simple Machines and individual contributors
+ * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
  * @version 2.1 Beta 3
@@ -27,8 +27,8 @@ require_once('Sources/Class-Package.php');
 
 // Database info.
 $databases = array(
-	'mysqli' => array(
-		'name' => 'MySQLi',
+	'mysql' => array(
+		'name' => 'MySQL',
 		'version' => '5.0.3',
 		'version_check' => 'return min(mysqli_get_server_info($db_connection), mysqli_get_client_info());',
 		'supported' => function_exists('mysqli_connect'),
@@ -36,33 +36,15 @@ $databases = array(
 		'default_password' => 'mysql.default_password',
 		'default_host' => 'mysql.default_host',
 		'default_port' => 'mysql.default_port',
-		'utf8_support' => true,
+		'utf8_support' => function() {
+			return true;
+		},
 		'utf8_version' => '5.0.3',
 		'utf8_version_check' => 'return mysqli_get_server_info($db_connection);',
 		'utf8_default' => true,
 		'utf8_required' => true,
 		'alter_support' => true,
 		'validate_prefix' => function(&$value) {
-			$value = preg_replace('~[^A-Za-z0-9_\$]~', '', $value);
-			return true;
-		},
-	),
-	'mysql' => array(
-		'name' => 'MySQL',
-		'version' => '5.0.3',
-		'version_check' => 'return min(mysql_get_server_info(), mysql_get_client_info());',
-		'supported' => function_exists('mysql_connect'),
-		'default_user' => 'mysql.default_user',
-		'default_password' => 'mysql.default_password',
-		'default_host' => 'mysql.default_host',
-		'default_port' => 'mysql.default_port',
-		'utf8_support' => true,
-		'utf8_version' => '5.0.3',
-		'utf8_version_check' => 'return mysql_get_server_info();',
-		'utf8_default' => true,
-		'utf8_required' => true,
-		'alter_support' => true,
-		'validate_prefix' => function(&$value){
 			$value = preg_replace('~[^A-Za-z0-9_\$]~', '', $value);
 			return true;
 		},
@@ -76,10 +58,19 @@ $databases = array(
 		'always_has_db' => true,
 		'utf8_default' => true,
 		'utf8_required' => true,
-		'utf8_support' => true,
+		'utf8_support' => function() {
+			$request = pg_query('SHOW SERVER_ENCODING');
+			
+			list ($charcode) = pg_fetch_row($request);
+			
+			if ($charcode == 'UTF8')			
+				return true;
+			else
+				return false;
+		},
 		'utf8_version' => '8.0',
 		'utf8_version_check' => '$request = pg_query(\'SELECT version()\'); list ($version) = pg_fetch_row($request); list($pgl, $version) = explode(" ", $version); return $version;',
-		'validate_prefix' => function(&$value){
+		'validate_prefix' => function(&$value) {
 			$value = preg_replace('~[^A-Za-z0-9_\$]~', '', $value);
 
 			// Is it reserved?
@@ -101,8 +92,6 @@ load_lang_file();
 
 // This is what we are.
 $installurl = $_SERVER['PHP_SELF'];
-// This is where SMF is.
-$smfsite = 'http://www.simplemachines.org/smf';
 
 // All the steps in detail.
 // Number,Name,Function,Progress Weight.
@@ -199,16 +188,6 @@ function initialize_inputs()
 		exit;
 	}
 
-	// Anybody home?
-	if (!isset($_GET['xml']))
-	{
-		$incontext['remote_files_available'] = false;
-		$test = @fsockopen('www.simplemachines.org', 80, $errno, $errstr, 1);
-		if ($test)
-			$incontext['remote_files_available'] = true;
-		@fclose($test);
-	}
-
 	// Add slashes, as long as they aren't already being added.
 	if (!function_exists('get_magic_quotes_gpc') || @get_magic_quotes_gpc() == 0)
 		foreach ($_POST as $k => $v)
@@ -247,15 +226,28 @@ function initialize_inputs()
 		}
 
 		// Now just redirect to a blank.png...
-		header('Location: http://' . (isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : $_SERVER['SERVER_NAME'] . ':' . $_SERVER['SERVER_PORT']) . dirname($_SERVER['PHP_SELF']) . '/Themes/default/images/blank.png');
+		header('Location: http' . (!empty($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS']) == 'on' ? 's' : '') . '://' . (isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : $_SERVER['SERVER_NAME'] . ':' . $_SERVER['SERVER_PORT']) . dirname($_SERVER['PHP_SELF']) . '/Themes/default/images/blank.png');
 		exit;
 	}
 
 	// PHP 5 might cry if we don't do this now.
 	if (function_exists('date_default_timezone_set'))
 	{
-		$server_offset = @mktime(0, 0, 0, 1, 1, 1970);
-		date_default_timezone_set('Etc/GMT' . ($server_offset > 0 ? '+' : '') . ($server_offset / 3600));
+		// Get PHP's default timezone, if set
+		$ini_tz = ini_get('date.timezone');
+		if (!empty($ini_tz))
+			$timezone_id = $ini_tz;
+		else
+			$timezone_id = '';
+
+		// If date.timezone is unset, invalid, or just plain weird, make a best guess
+		if (!in_array($timezone_id, timezone_identifiers_list()))
+		{
+			$server_offset = @mktime(0, 0, 0, 1, 1, 1970);
+			$timezone_id = timezone_name_from_abbr('', $server_offset, 0);
+		}
+
+		date_default_timezone_set($timezone_id);
 	}
 
 	// Force an integer step, defaulting to 0.
@@ -305,7 +297,7 @@ function load_lang_file()
 		<p>In some cases, FTP clients do not properly upload files with this many folders.  Please double check to make sure you <span style="font-weight: 600;">have uploaded all the files in the distribution</span>.</p>
 		<p>If that doesn\'t help, please make sure this install.php file is in the same place as the Themes folder.</p>
 
-		<p>If you continue to get this error message, feel free to <a href="http://support.simplemachines.org/">look to us for support</a>.</p>
+		<p>If you continue to get this error message, feel free to <a href="https://support.simplemachines.org/">look to us for support</a>.</p>
 	</div></body>
 </html>';
 		die;
@@ -363,7 +355,7 @@ function load_database()
 		// Figure out the port...
 		if (!empty($_POST['db_port']))
 		{
-			if ($db_type == 'mysql' || $db_type == 'mysqli')
+			if ($db_type == 'mysql')
 			{
 				$port = ((int) $_POST['db_port'] == ini_get($db_type . 'default_port')) ? '' : (int) $_POST['db_port'];
 			}
@@ -458,10 +450,7 @@ function Welcome()
 				$txt['error_db_script_missing'] = sprintf($txt['error_db_script_missing'], 'install_' . $GLOBALS['db_script_version'] . '_' . $type . '.sql');
 			}
 			else
-			{
-				$db_type = $key;
 				$incontext['supported_databases'][] = $db;
-			}
 		}
 	}
 
@@ -509,10 +498,10 @@ function CheckFilesWritable()
 		'Smileys',
 		'Themes',
 		'agreement.txt',
-		'Settings.php'
+		'Settings.php',
+		'Settings_bak.php',
+		'db_last_error.php',
 	);
-	if (file_exists(dirname(__FILE__) . '/Settings_bak.php'))
-		$writable_files[] = 'Settings_bak.php';
 
 	foreach ($incontext['detected_languages'] as $lang => $temp)
 		$extra_files[] = 'Themes/default/languages/' . $lang;
@@ -603,7 +592,7 @@ function CheckFilesWritable()
 		}
 
 		$incontext['ftp_errors'] = array();
-
+		require_once('Sources/Class-Package.php');
 		if (isset($_POST['ftp_username']))
 		{
 			$ftp = new ftp_connection($_POST['ftp_server'], $_POST['ftp_port'], $_POST['ftp_username'], $_POST['ftp_password']);
@@ -741,7 +730,7 @@ function DatabaseSettings()
 	if (isset($_POST['db_user']))
 	{
 		$incontext['db']['user'] = $_POST['db_user'];
-		$incontext['db']['name'] =  $_POST['db_name'];
+		$incontext['db']['name'] = $_POST['db_name'];
 		$incontext['db']['server'] = $_POST['db_server'];
 		$incontext['db']['prefix'] = $_POST['db_prefix'];
 
@@ -967,6 +956,12 @@ function ForumSettings()
 		// UTF-8 requires a setting to override the language charset.
 		if ((!empty($databases[$db_type]['utf8_support']) && !empty($databases[$db_type]['utf8_required'])) || (empty($databases[$db_type]['utf8_required']) && !empty($databases[$db_type]['utf8_support']) && isset($_POST['utf8'])))
 		{
+			if (!$databases[$db_type]['utf8_support']())
+			{
+				$incontext['error'] = sprintf($txt['error_utf8_support']);
+				return false;
+			}
+				
 			if (!empty($databases[$db_type]['utf8_version_check']) && version_compare($databases[$db_type]['utf8_version'], preg_replace('~\-.+?$~', '', eval($databases[$db_type]['utf8_version_check'])), '>'))
 			{
 				$incontext['error'] = sprintf($txt['error_utf8_version'], $databases[$db_type]['utf8_version']);
@@ -1144,7 +1139,7 @@ function DatabasePopulation()
 		if ($smcFunc['db_query']('', $current_statement, array('security_override' => true, 'db_error_skip' => true), $db_connection) === false)
 		{
 			// Use the appropriate function based on the DB type
-			if ($db_type == 'mysql' || $db_type =='mysqli')
+			if ($db_type == 'mysql' || $db_type == 'mysqli')
 				$db_errorno = $db_type . '_errno';
 
 			// Error 1050: Table already exists!
@@ -1216,7 +1211,7 @@ function DatabasePopulation()
 	}
 
 	// Are we allowing stat collection?
-	if (isset($_POST['stats']) && strpos($_POST['boardurl'], 'http://localhost') !== 0)
+	if (isset($_POST['stats']) && (strpos($_POST['boardurl'], 'http://localhost') !== 0 || strpos($_POST['boardurl'], 'https://localhost') !== 0))
 	{
 		// Attempt to register the site etc.
 		$fp = @fsockopen("www.simplemachines.org", 80, $errno, $errstr);
@@ -1245,11 +1240,23 @@ function DatabasePopulation()
 	if (!empty($_POST['force_ssl']))
 		$newSettings[] = array('force_ssl', 2);
 
-	// As of PHP 5.1, setting a timezone is required.
+	// Setting a timezone is required.
 	if (!isset($modSettings['default_timezone']) && function_exists('date_default_timezone_set'))
 	{
-		$server_offset = mktime(0, 0, 0, 1, 1, 1970);
-		$timezone_id = 'Etc/GMT' . ($server_offset > 0 ? '+' : '') . ($server_offset / 3600);
+		// Get PHP's default timezone, if set
+		$ini_tz = ini_get('date.timezone');
+		if (!empty($ini_tz))
+			$timezone_id = $ini_tz;
+		else
+			$timezone_id = '';
+
+		// If date.timezone is unset, invalid, or just plain weird, make a best guess
+		if (!in_array($timezone_id, timezone_identifiers_list()))
+		{
+			$server_offset = @mktime(0, 0, 0, 1, 1, 1970);
+			$timezone_id = timezone_name_from_abbr('', $server_offset, 0);
+		}
+
 		if (date_default_timezone_set($timezone_id))
 			$newSettings[] = array('default_timezone', $timezone_id);
 	}
@@ -1333,8 +1340,7 @@ function AdminAccount()
 	require_once($sourcedir . '/Subs.php');
 
 	// We need this to properly hash the password for Admin
-	$smcFunc['strtolower'] = $db_character_set != 'utf8' && $txt['lang_character_set'] != 'UTF-8' ? 'strtolower' :
-		function($string){
+	$smcFunc['strtolower'] = $db_character_set != 'utf8' && $txt['lang_character_set'] != 'UTF-8' ? 'strtolower' : function($string) {
 			global $sourcedir;
 			if (function_exists('mb_strtolower'))
 				return mb_strtolower($string, 'UTF-8');
@@ -1457,7 +1463,7 @@ function AdminAccount()
 
 			$_POST['password1'] = hash_password(stripslashes($_POST['username']), stripslashes($_POST['password1']));
 
-			$request = $smcFunc['db_insert']('',
+			$incontext['member_id'] = $smcFunc['db_insert']('',
 				$db_prefix . 'members',
 				array(
 					'member_name' => 'string-25', 'real_name' => 'string-25', 'passwd' => 'string', 'email_address' => 'string',
@@ -1477,18 +1483,9 @@ function AdminAccount()
 					'', '', '',
 					'', '',
 				),
-				array('id_member')
+				array('id_member'),
+				1
 			);
-
-			// Awww, crud!
-			if ($request === false)
-			{
-				$incontext['error'] = $txt['error_user_settings_query'] . '<br>
-				<div style="margin: 2ex;">' . nl2br(htmlspecialchars($smcFunc['db_error']($db_connection))) . '</div>';
-				return false;
-			}
-
-			$incontext['member_id'] = $smcFunc['db_insert_id']("{$db_prefix}members", 'id_member');
 		}
 
 		// If we're here we're good.
@@ -1627,7 +1624,7 @@ function DeleteInstall()
 	// Sanity check that they loaded earlier!
 	if (isset($modSettings['recycle_board']))
 	{
-		$forum_version = $current_smf_version;  // The variable is usually defined in index.php so lets just use our variable to do it for us.
+		$forum_version = $current_smf_version; // The variable is usually defined in index.php so lets just use our variable to do it for us.
 		scheduled_fetchSMfiles(); // Now go get those files!
 
 		// We've just installed!
@@ -1801,9 +1798,9 @@ function template_install_above()
 		<title>', $txt['smf_installer'], '</title>
 		<link rel="stylesheet" href="Themes/default/css/index.css?alp21">
 		<link rel="stylesheet" href="Themes/default/css/install.css?alp21">
-		', $txt['lang_rtl'] == true ? '<link rel="stylesheet" href="Themes/default/css/rtl.css?alp21">' : '' , '
+		', $txt['lang_rtl'] == true ? '<link rel="stylesheet" href="Themes/default/css/rtl.css?alp21">' : '', '
 
-		<script src="Themes/default/scripts/jquery-2.1.3.min.js"></script>
+		<script src="Themes/default/scripts/jquery-3.1.1.min.js"></script>
 		<script src="Themes/default/scripts/script.js"></script>
 	</head>
 	<body><div id="footerfix">
@@ -1897,7 +1894,7 @@ function template_install_below()
 		</div></div>
 		<div id="footer">
 			<ul>
-				<li class="copyright"><a href="http://www.simplemachines.org/" title="Simple Machines Forum" target="_blank" class="new_win">SMF &copy; 2016, Simple Machines</a></li>
+				<li class="copyright"><a href="https://www.simplemachines.org/" title="Simple Machines Forum" target="_blank" class="new_win">SMF &copy; 2017, Simple Machines</a></li>
 			</ul>
 		</div>
 	</body>
@@ -1910,7 +1907,7 @@ function template_welcome_message()
 	global $incontext, $txt;
 
 	echo '
-	<script src="http://www.simplemachines.org/smf/current-version.js?version=' . $GLOBALS['current_smf_version'] . '"></script>
+	<script src="https://www.simplemachines.org/smf/current-version.js?version=' . $GLOBALS['current_smf_version'] . '"></script>
 	<form action="', $incontext['form_url'], '" method="post">
 		<p>', sprintf($txt['install_welcome_desc'], $GLOBALS['current_smf_version']), '</p>
 		<div id="version_warning" style="margin: 2ex; padding: 2ex; border: 2px dashed #a92174; color: black; background-color: #fbbbe2; display: none;">

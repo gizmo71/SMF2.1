@@ -7,7 +7,7 @@
  *
  * @package SMF
  * @author Simple Machines http://www.simplemachines.org
- * @copyright 2016 Simple Machines and individual contributors
+ * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
  * @version 2.1 Beta 3
@@ -118,8 +118,6 @@ class Attachments
 
 	public function add()
 	{
-		$result = array();
-
 		// You gotta be able to post attachments.
 		if (!$this->_canPostAttachment)
 			return $this->setResponse(array(
@@ -256,6 +254,11 @@ class Attachments
 			// No errors, YAY!
 			if (empty($errors))
 			{
+				// The reported MIME type of the attachment might not be reliable.
+				// Fortunately, PHP 5.3+ lets us easily verify the real MIME type.
+				if (function_exists('mime_content_type'))
+					$_FILES['attachment']['type'][$n] = mime_content_type($_FILES['attachment']['tmp_name'][$n]);
+
 				$_SESSION['temp_attachments'][$attachID] = array(
 					'name' => $smcFunc['htmlspecialchars'](basename($_FILES['attachment']['name'][$n])),
 					'tmp_name' => $destName,
@@ -314,8 +317,6 @@ class Attachments
 	{
 		global $txt, $user_info, $modSettings;
 
-		$attachIDs = array();
-
 		// Create an empty session var to keep track of all the files we attached.
 		$SESSION['already_attached'] = array();
 
@@ -330,10 +331,11 @@ class Attachments
 				'mime_type' => isset($attachment['type']) ? $attachment['type'] : '',
 				'id_folder' => isset($attachment['id_folder']) ? $attachment['id_folder'] : $modSettings['currentAttachmentUploadDir'],
 				'approved' => !$modSettings['postmod_active'] || allowedTo('post_attachment'),
-				'errors' => $attachment['errors'],
+				'errors' => array(),
 			);
 
 			if (empty($attachment['errors']))
+			{	
 				if (createAttachment($attachmentOptions))
 				{
 					// Avoid JS getting confused.
@@ -348,13 +350,13 @@ class Attachments
 					if ($this->_msg)
 						assignAttachments($_SESSION['already_attached'], $this->_msg);
 				}
-
-			elseif (!empty($attachmentOptions['errors']))
+			}
+			else
 			{
 				// Sort out the errors for display and delete any associated files.
 				$log_these = array('attachments_no_create', 'attachments_no_write', 'attach_timeout', 'ran_out_of_space', 'cant_access_upload_path', 'attach_0_byte_file');
 
-				foreach ($attachmentOptions['errors'] as $error)
+				foreach ($attachment['errors'] as $error)
 				{
 					$attachmentOptions['errors'][] = vsprintf($txt['attach_warning'], $attachment['name']);
 

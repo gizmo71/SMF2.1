@@ -8,8 +8,8 @@ $txt['native_name'] = 'English';
 
 // Locale (strftime, pspell_new) and spelling. (pspell_new, can be left as '' normally.)
 // For more information see:
-//   - http://www.php.net/function.pspell-new
-//   - http://www.php.net/function.setlocale
+//   - https://php.net/function.pspell-new
+//   - https://php.net/function.setlocale
 // Again, SPELLING SHOULD BE '' 99% OF THE TIME!!  Please read this!
 $txt['lang_locale'] = 'en_US';
 $txt['lang_dictionary'] = 'en';
@@ -30,6 +30,13 @@ $txt['months_title'] = 'Months';
 $txt['months'] = array(1 => 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December');
 $txt['months_titles'] = array(1 => 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December');
 $txt['months_short'] = array(1 => 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec');
+$txt['prev_month'] = 'Previous month';
+$txt['next_month'] = 'Next month';
+$txt['start'] = 'Start';
+$txt['end'] = 'End';
+$txt['starts'] = 'Starts';
+$txt['ends'] = 'Ends';
+$txt['none'] = 'None';
 
 $txt['minutes_label'] = 'Minutes';
 $txt['hours_label'] = 'Hours';
@@ -202,7 +209,7 @@ $txt['memberlist_searchable'] = 'Searchable list of all registered members.';
 $txt['welcome_newest_member'] = 'Please welcome %1$s, our newest member.';
 $txt['admin_center'] = 'Administration Center';
 $txt['last_edit_by'] = '<span class="lastedit">Last Edit</span>: %1$s by %2$s';
-$txt['last_edit_reason'] = '<span class="lastedit">Reason</span>: %1$s';
+$txt['last_edit_reason'] = '<span id="reason" class="lastedit">Reason</span>: %1$s';
 $txt['notify_deactivate'] = 'Would you like to deactivate notification on this topic?';
 
 $txt['recent_posts'] = 'Recent Posts';
@@ -390,10 +397,12 @@ $txt['new_poll'] = 'New poll';
 $txt['poll_question'] = 'Question';
 $txt['poll_vote'] = 'Submit Vote';
 $txt['poll_total_voters'] = 'Total Members Voted';
-$txt['shortcuts'] = 'shortcuts: alt+s submit/post, alt+p preview';
-$txt['shortcuts_firefox'] = 'shortcuts: shift+alt+s submit/post, shift+alt+p preview';
+$txt['shortcuts'] = 'Shortcuts: alt+s save/post, alt+p preview';
+$txt['shortcuts_firefox'] = 'Shortcuts: shift+alt+s save/post, shift+alt+p preview';
+$txt['shortcuts_mac'] = 'Shortcuts: ⌃⌥S save/post, ⌃⌥P preview';
 $txt['shortcuts_drafts'] = ', alt+d save draft';
 $txt['shortcuts_drafts_firefox'] = ', shift+alt+d save draft';
+$txt['shortcuts_drafts_mac'] = ', ⌃⌥D save draft';
 $txt['poll_results'] = 'View results';
 $txt['poll_lock'] = 'Lock Voting';
 $txt['poll_unlock'] = 'Unlock Voting';
@@ -473,7 +482,7 @@ $txt['cache_writable'] = 'The cache directory is not writable - this will advers
 
 $txt['page_created_full'] = 'Page created in %1$.3f seconds with %2$d queries.';
 
-$txt['report_to_mod_func'] = 'Use this function to inform the moderators and administrators of an abusive or wrongly posted message.';
+$txt['report_to_mod_func'] = 'Use this function to inform the moderators and administrators of an abusive or problematic message.';
 $txt['report_profile_func'] = 'Use this function to inform the administrators of abusive profile content, such as spam or inappropriate images.';
 
 $txt['online'] = 'Online';
@@ -495,12 +504,12 @@ $txt['birthdays_upcoming'] = 'Upcoming Birthdays:';
 $txt['events_upcoming'] = 'Upcoming Events:';
 // Prompt for holidays in the calendar, leave blank to just display the holiday's name.
 $txt['calendar_prompt'] = 'Holidays:';
-$txt['calendar_month'] = 'Month:';
-$txt['calendar_year'] = 'Year:';
-$txt['calendar_day'] = 'Day:';
+$txt['calendar_month'] = 'Month';
+$txt['calendar_year'] = 'Year';
+$txt['calendar_day'] = 'Day';
 $txt['calendar_event_title'] = 'Event Title';
 $txt['calendar_event_options'] = 'Event Options';
-$txt['calendar_post_in'] = 'Post In:';
+$txt['calendar_post_in'] = 'Post in';
 $txt['calendar_edit'] = 'Edit Event';
 $txt['calendar_export'] = 'Export Event';
 $txt['calendar_view_week'] = 'View Week';
@@ -515,12 +524,15 @@ $txt['calendar_week'] = 'Week';
 $txt['calendar_week_title'] = 'Week %1$d of %2$d';
 // %1$s is the month, %2$s is the day, %3$s is the year. Change to suit your language.
 $txt['calendar_week_beginning'] = 'Week beginning %1$s %2$s, %3$s';
-$txt['calendar_numb_days'] = 'Number of Days:';
+$txt['calendar_numb_days'] = 'Number of Days';
 $txt['calendar_how_edit'] = 'how do you edit these events?';
-$txt['calendar_link_event'] = 'Link Event To Post:';
+$txt['calendar_link_event'] = 'Link Event To Post';
 $txt['calendar_confirm_delete'] = 'Are you sure you want to delete this event?';
 $txt['calendar_linked_events'] = 'Linked Events';
 $txt['calendar_click_all'] = 'click to see all %1$s';
+$txt['calendar_allday'] = 'All day';
+$txt['calendar_timezone'] = 'Time zone';
+$txt['calendar_list'] = 'List';
 
 $txt['movetopic_change_subject'] = 'Change the topic\'s subject';
 $txt['movetopic_new_subject'] = 'New subject';
@@ -679,7 +691,7 @@ $txt['merge_custom_subject'] = 'Custom subject';
 $txt['merge_include_notifications'] = 'Include notifications?';
 $txt['merge_check'] = 'Merge?';
 $txt['merge_no_poll'] = 'No poll';
-$txt['merge_why'] = 'Please entere a brief description as to<br>why these topics are being merged.';
+$txt['merge_why'] = 'Please enter a brief description as to<br>why these topics are being merged.';
 $txt['merged_subject'] = '[MERGED] %1$s';
 $txt['mergetopic_default'] = 'This topic has been merged into ' . $txt['movetopic_auto_topic'] . '.';
 
@@ -861,7 +873,7 @@ $txt['notify_topic_0'] = 'Not Following';
 $txt['notify_topic_1'] = 'No Alerts or Emails';
 $txt['notify_topic_2'] = 'Receive Alerts';
 $txt['notify_topic_3'] = 'Receive Emails and Alerts';
-$txt['notify_topic_0_desc'] = 'You will not receive any emails or alerts for this post and it will also not show up in your unread replies and topics list. You will still receive @mentions for this topic.';
+$txt['notify_topic_0_desc'] = 'You will not receive any emails or alerts for this topic and it will also not show up in your unread replies and topics list. You will still receive @mentions for this topic.';
 $txt['notify_topic_1_desc'] = 'You will not receive any emails or alerts but only @mentions by other members.';
 $txt['notify_topic_2_desc'] = 'You will receive alerts for this topic.';
 $txt['notify_topic_3_desc'] = 'You will receive both alerts and e-mails for this topic.';
@@ -876,4 +888,5 @@ $txt['notify_board_3_desc'] = 'You will receive both alerts and e-mails for this
 $txt['mobile_action'] = 'User actions';
 $txt['mobile_moderation'] = 'Moderation';
 $txt['mobile_user_menu'] = 'Mobile Main Menu';
+
 ?>

@@ -7,7 +7,7 @@
  *
  * @package SMF
  * @author Simple Machines http://www.simplemachines.org
- * @copyright 2016 Simple Machines and individual contributors
+ * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
  * @version 2.1 Beta 3
@@ -71,11 +71,11 @@ function showAttachment()
 	}
 
 	// Use cache when possible.
-	if (($cache = cache_get_data('attachment_lookup_id-'. $attachId)) != null)
+	if (($cache = cache_get_data('attachment_lookup_id-' . $attachId)) != null)
 		list($file, $thumbFile) = $cache;
 
 	// Get the info from the DB.
-	if(empty($file) || empty($thumbFile) && !empty($file['id_thumb']))
+	if (empty($file) || empty($thumbFile) && !empty($file['id_thumb']))
 	{
 		// Do we have a hook wanting to use our attachment system? We use $attachRequest to prevent accidental usage of $request.
 		$attachRequest = null;
@@ -144,8 +144,8 @@ function showAttachment()
 		$file['filePath'] = getAttachmentFilename($file['filename'], $attachId, $file['id_folder'], false, $file['file_hash']);
 		// ensure variant attachment compatibility
 		$filePath = pathinfo($file['filePath']);
-		$file['filePath'] = !file_exists($file['filePath']) ? substr($file['filePath'], 0, -(strlen($filePath['extension'])+1)) : $file['filePath'];
-		$file['etag'] = '"'. md5_file($file['filePath']) .'"';
+		$file['filePath'] = !file_exists($file['filePath']) ? substr($file['filePath'], 0, -(strlen($filePath['extension']) + 1)) : $file['filePath'];
+		$file['etag'] = '"' . md5_file($file['filePath']) . '"';
 
 		// now get the thumbfile!
 		$thumbFile = array();
@@ -171,25 +171,14 @@ function showAttachment()
 
 				// set filePath and ETag time
 				$thumbFile['filePath'] = getAttachmentFilename($thumbFile['filename'], $attachId, $thumbFile['id_folder'], false, $thumbFile['file_hash']);
-				$thumbFile['etag'] = '"'. md5_file($thumbFile['filePath']) .'"';
+				$thumbFile['etag'] = '"' . md5_file($thumbFile['filePath']) . '"';
 			}
 		}
 
 		// Cache it.
-		if(!empty($file) || !empty($thumbFile))
-			cache_put_data('attachment_lookup_id-'. $file['id_attach'], array($file, $thumbFile), mt_rand(850, 900));
+		if (!empty($file) || !empty($thumbFile))
+			cache_put_data('attachment_lookup_id-' . $file['id_attach'], array($file, $thumbFile), mt_rand(850, 900));
 	}
-
-	// Update the download counter (unless it's a thumbnail).
-	if ($file['attachment_type'] != 3 && empty($showThumb))
-		$smcFunc['db_query']('attach_download_increase', '
-			UPDATE LOW_PRIORITY {db_prefix}attachments
-			SET downloads = downloads + 1
-			WHERE id_attach = {int:id_attach}',
-			array(
-				'id_attach' => $attachId,
-			)
-		);
 
 	// Replace the normal file with its thumbnail if it has one!
 	if (!empty($showThumb) && !empty($thumbFile))
@@ -228,6 +217,30 @@ function showAttachment()
 		header('HTTP/1.1 304 Not Modified');
 		exit;
 	}
+
+	// If this is a partial download, we need to determine what data range to send
+	$range = 0;
+	$size = filesize($file['filePath']);
+	if (isset($_SERVER['HTTP_RANGE']))
+	{
+		list($a, $range) = explode("=", $_SERVER['HTTP_RANGE'], 2);
+		list($range) = explode(",", $range, 2);
+		list($range, $range_end) = explode("-", $range);
+		$range = intval($range);
+		$range_end = !$range_end ? $size - 1 : intval($range_end);
+		$new_length = $range_end - $range + 1;
+	}
+
+	// Update the download counter (unless it's a thumbnail or resuming an incomplete download).
+	if ($file['attachment_type'] != 3 && empty($showThumb) && $range === 0)
+		$smcFunc['db_query']('attach_download_increase', '
+			UPDATE LOW_PRIORITY {db_prefix}attachments
+			SET downloads = downloads + 1
+			WHERE id_attach = {int:id_attach}',
+			array(
+				'id_attach' => $attachId,
+			)
+		);
 
 	// Send the attachment headers.
 	header('Pragma: ');
@@ -280,33 +293,46 @@ function showAttachment()
 	else
 		header('Cache-Control: max-age=' . (525600 * 60) . ', private');
 
-	header('Content-Length: ' . filesize($file['filePath']));
+	// Multipart and resuming support
+	if (isset($_SERVER['HTTP_RANGE']))
+	{
+		header("HTTP/1.1 206 Partial Content");
+		header("Content-Length: $new_length");
+		header("Content-Range: bytes $range-$range_end/$size");
+	}
+	else
+		header("Content-Length: " . $size);
+
 
 	// Try to buy some time...
 	@set_time_limit(600);
 
-	// Recode line endings for text files, if enabled.
-	if (!empty($modSettings['attachmentRecodeLineEndings']) && !isset($_REQUEST['image']) && in_array($file['fileext'], array('txt', 'css', 'htm', 'html', 'php', 'xml')))
+	// For multipart/resumable downloads, send the requested chunk(s) of the file
+	if (isset($_SERVER['HTTP_RANGE']))
 	{
-		if (strpos($_SERVER['HTTP_USER_AGENT'], 'Windows') !== false)
-			$callback = function ($buffer)
-			{
-				return preg_replace('~[\r]?\n~', "\r\n", $buffer);
-			};
-		elseif (strpos($_SERVER['HTTP_USER_AGENT'], 'Mac') !== false)
-			$callback = function ($buffer)
-			{
-				return preg_replace('~[\r]?\n~', "\r", $buffer);
-			};
-		else
-			$callback = function ($buffer)
-			{
-				return preg_replace('~[\r]?\n~', "\n", $buffer);
-			};
+		while (@ob_get_level() > 0)
+			@ob_end_clean();
+
+		// 40 kilobytes is a good-ish amount
+		$chunksize = 40 * 1024;
+		$bytes_sent = 0;
+
+		$fp = fopen($file['filePath'], 'rb');
+
+		fseek($fp, $range);
+
+		while (!feof($fp) && (!connection_aborted()) && ($bytes_sent < $new_length))
+		{
+			$buffer = fread($fp, $chunksize);
+			echo($buffer);
+			flush();
+			$bytes_sent += strlen($buffer);
+		}
+		fclose($fp);
 	}
 
 	// Since we don't do output compression for files this large...
-	if (filesize($file['filePath']) > 4194304)
+	elseif ($size > 4194304)
 	{
 		// Forcibly end any output buffering going on.
 		while (@ob_get_level() > 0)
@@ -327,4 +353,5 @@ function showAttachment()
 
 	die();
 }
+
 ?>

@@ -7,7 +7,7 @@
  *
  * @package SMF
  * @author Simple Machines http://www.simplemachines.org
- * @copyright 2016 Simple Machines and individual contributors
+ * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
  * @version 2.1 Beta 3
@@ -101,7 +101,7 @@ function MembergroupIndex()
 					'value' => $txt['membergroups_name'],
 				),
 				'data' => array(
-					'function' => function ($rowData) use ($scripturl)
+					'function' => function($rowData) use ($scripturl)
 					{
 						// Since the moderator group has no explicit members, no link is needed.
 						if ($rowData['id_group'] == 3)
@@ -144,7 +144,7 @@ function MembergroupIndex()
 					'class' => 'centercol',
 				),
 				'data' => array(
-					'function' => function ($rowData) use ($txt)
+					'function' => function($rowData) use ($txt)
 					{
 						// No explicit members for the moderator group.
 						return $rowData['id_group'] == 3 ? $txt['membergroups_guests_na'] : comma_format($rowData['num_members']);
@@ -210,7 +210,7 @@ function MembergroupIndex()
 					'value' => $txt['membergroups_name'],
 				),
 				'data' => array(
-					'function' => function ($rowData) use ($scripturl)
+					'function' => function($rowData) use ($scripturl)
 					{
 						$colorStyle = empty($rowData['online_color']) ? '' : sprintf(' style="color: %1$s;"', $rowData['online_color']);
 						return sprintf('<a href="%1$s?action=moderate;area=viewgroups;sa=members;group=%2$d"%3$s>%4$s</a>', $scripturl, $rowData['id_group'], $colorStyle, $rowData['group_name']);
@@ -312,7 +312,7 @@ function AddMembergroup()
 
 		call_integration_hook('integrate_pre_add_membergroup', array());
 
-		$smcFunc['db_insert']('',
+		$id_group = $smcFunc['db_insert']('',
 			'{db_prefix}membergroups',
 			array(
 				'description' => 'string', 'group_name' => 'string-80', 'min_posts' => 'int',
@@ -322,10 +322,9 @@ function AddMembergroup()
 				'', $smcFunc['htmlspecialchars']($_POST['group_name'], ENT_QUOTES), ($postCountBasedGroup ? (int) $_POST['min_posts'] : '-1'),
 				'1#icon.png', '', $_POST['group_type'],
 			),
-			array('id_group')
+			array('id_group'),
+			1
 		);
-
-		$id_group = $smcFunc['db_insert_id']('{db_prefix}membergroups', 'id_group');
 
 		call_integration_hook('integrate_add_membergroup', array($id_group, $postCountBasedGroup));
 
@@ -848,7 +847,7 @@ function EditMembergroup()
 				updateMemberData($memberArray, array('additional_groups' => implode(',', array_diff(explode(',', $additional_groups), array((int) $_REQUEST['group'])))));
 
 			// Sorry, but post groups can't moderate boards
-			$request = $smcFunc['db_query']('', '
+			$smcFunc['db_query']('', '
 				DELETE FROM {db_prefix}moderator_groups
 				WHERE id_group = {int:current_group}',
 				array(
@@ -1133,10 +1132,6 @@ function EditMembergroup()
 			// Include a list of boards per category for easy toggling.
 			$context['categories'][$category['id']]['child_ids'] = array_keys($category['boards']);
 		}
-
-		$max_boards = ceil(count($temp_boards) / 2);
-		if ($max_boards == 1)
-			$max_boards = 2;
 	}
 
 	// Get a list of all the image formats we can select.

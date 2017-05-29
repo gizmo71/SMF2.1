@@ -4,7 +4,7 @@
  *
  * @package SMF
  * @author Simple Machines http://www.simplemachines.org
- * @copyright 2016 Simple Machines and individual contributors
+ * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
  * @version 2.1 Beta 3
@@ -27,9 +27,9 @@ if (!defined('SMF'))
  *  - $fetch_data = new cURL_fetch_web_data(array(CURLOPT_SSL_VERIFYPEER => 1), 5);
  *
  * Make the call
- *  - $fetch_data('http://www.simplemachines.org'); // fetch a page
- *  - $fetch_data('http://www.simplemachines.org', array('user' => 'name', 'password' => 'password')); // post to a page
- *  - $fetch_data('http://www.simplemachines.org', parameter1&parameter2&parameter3); // post to a page
+ *  - $fetch_data('https://www.simplemachines.org'); // fetch a page
+ *  - $fetch_data('https://www.simplemachines.org', array('user' => 'name', 'password' => 'password')); // post to a page
+ *  - $fetch_data('https://www.simplemachines.org', parameter1&parameter2&parameter3); // post to a page
  *
  * Get the data
  *  - $fetch_data->result('body'); // just the page content
@@ -57,6 +57,41 @@ class curl_fetch_web_data
 		CURLOPT_SSL_VERIFYHOST	=> 0, // stop cURL from verifying the peer's host
 		CURLOPT_POST			=> 0, // no post data unless its passed
 	);
+	
+	/**
+	 * @var int Maximum number of redirects
+	 */
+	public $max_redirect;
+	
+	/**
+	 * @var array An array of cURL options
+	 */
+	public $user_options = array();
+	
+	/**
+	 * @var string Any post data as form name => value
+	 */
+	public $post_data;
+	
+	/**
+	 * @var array An array of cURL options
+	 */
+	public $options;
+	
+	/**
+	 * @var int ???
+	 */
+	public $current_redirect;
+	
+	/**
+	 * @var array Stores responses (url, code, error, headers, body) in the response array
+	 */
+	public $response = array();
+	
+	/**
+	 * @var string The header
+	 */
+	public $headers;
 
 	/**
 	* Start the curl object
@@ -64,7 +99,6 @@ class curl_fetch_web_data
 	*
 	* @param array $options An array of cURL options
 	* @param int $max_redirect Maximum number of redirects
-	* @return void
 	*/
 	public function __construct($options = array(), $max_redirect = 3)
 	{

@@ -10,7 +10,7 @@
  *
  * @package SMF
  * @author Simple Machines http://www.simplemachines.org
- * @copyright 2016 Simple Machines and individual contributors
+ * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
  * @version 2.1 Beta 3
@@ -572,7 +572,7 @@ function getPackageInfo($gzfilename)
 
 	// Don't want to mess with code...
 	$types = array('install', 'uninstall', 'upgrade');
-	foreach($types as $type)
+	foreach ($types as $type)
 	{
 		if (isset($package[$type]['code']))
 		{
@@ -697,7 +697,7 @@ function create_chmod_control($chmodFiles = array(), $chmodOptions = array(), $r
 						'value' => $txt['package_restore_permissions_cur_status'],
 					),
 					'data' => array(
-						'function' => function ($rowData) use ($txt)
+						'function' => function($rowData) use ($txt)
 						{
 							$formatTxt = $rowData['result'] == '' || $rowData['result'] == 'skipped' ? $txt['package_restore_permissions_pre_change'] : $txt['package_restore_permissions_post_change'];
 							return sprintf($formatTxt, $rowData['cur_perms'], $rowData['new_perms'], $rowData['writable_message']);
@@ -725,7 +725,7 @@ function create_chmod_control($chmodFiles = array(), $chmodOptions = array(), $r
 						'value' => $txt['package_restore_permissions_result'],
 					),
 					'data' => array(
-						'function' => function ($rowData) use ($txt)
+						'function' => function($rowData) use ($txt)
 						{
 							return $txt['package_restore_permissions_action_' . $rowData['result']];
 						},
@@ -1195,7 +1195,7 @@ function parsePackageInfo(&$packageXML, $testing_only = true, $method = 'install
 				if ($action->exists('@lang'))
 				{
 					// Auto-select the language based on either request variable or current language.
-					if ((isset($_REQUEST['readme']) && $action->fetch('@lang') == $_REQUEST['readme']) || (isset($_REQUEST['license']) && $action->fetch('@lang') == $_REQUEST['license']) || (!isset($_REQUEST['readme']) && $action->fetch('@lang') == $language)	|| (!isset($_REQUEST['license']) && $action->fetch('@lang') == $language))
+					if ((isset($_REQUEST['readme']) && $action->fetch('@lang') == $_REQUEST['readme']) || (isset($_REQUEST['license']) && $action->fetch('@lang') == $_REQUEST['license']) || (!isset($_REQUEST['readme']) && $action->fetch('@lang') == $language) || (!isset($_REQUEST['license']) && $action->fetch('@lang') == $language))
 					{
 						// In case the user put the blocks in the wrong order.
 						if (isset($context[$type]['selected']) && $context[$type]['selected'] == 'default')
@@ -1243,7 +1243,7 @@ function parsePackageInfo(&$packageXML, $testing_only = true, $method = 'install
 				'redirect_url' => $action->exists('@url') ? $action->fetch('@url') : '',
 				'redirect_timeout' => $action->exists('@timeout') ? (int) $action->fetch('@timeout') : '',
 				'parse_bbc' => $action->exists('@parsebbc') && $action->fetch('@parsebbc') == 'true',
-				'language' => (($actionType == 'readme' || $actionType == 'license')  && $action->exists('@lang') && $action->fetch('@lang') == $language) ? $language : '',
+				'language' => (($actionType == 'readme' || $actionType == 'license') && $action->exists('@lang') && $action->fetch('@lang') == $language) ? $language : '',
 			);
 
 			continue;
@@ -2416,8 +2416,6 @@ function parseBoardMod($file, $testing = true, $undo = false, $theme_paths = arr
 		}
 	}
 
-	// Anything above $counter must be for custom themes.
-	$custom_template_begin = $counter;
 	// Reference for what theme ID this action belongs to.
 	$theme_id_ref = array();
 
@@ -2754,7 +2752,7 @@ function package_put_contents($filename, $data, $testing = false)
 }
 
 /**
- * Clears (removes the files) the current package cache (temp directory)
+ * Flushes the cache from memory to the filesystem
  *
  * @param bool $trash
  */
@@ -2780,7 +2778,8 @@ function package_flush_cache($trash = false)
 		$result = package_chmod($filename);
 
 		// if we are not doing our test pass, then lets do a full write check
-		if (!$trash)
+		// bypass directories when doing this test
+		if ((!$trash) && !is_dir($filename))
 		{
 			// acid test, can we really open this file for writing?
 			$fp = ($result) ? fopen($filename, 'r+') : $result;
@@ -2800,11 +2799,16 @@ function package_flush_cache($trash = false)
 		return;
 	}
 
+	// Write the cache to disk here.
+	// Bypass directories when doing so - no data to write & the fopen will crash.
 	foreach ($package_cache as $filename => $data)
 	{
-		$fp = fopen($filename, in_array(substr($filename, -3), $text_filetypes) ? 'w' : 'wb');
-		fwrite($fp, $data);
-		fclose($fp);
+		if (!is_dir($filename)) 
+		{
+			$fp = fopen($filename, in_array(substr($filename, -3), $text_filetypes) ? 'w' : 'wb');
+			fwrite($fp, $data);
+			fclose($fp);
+		}
 	}
 
 	$package_cache = array();
@@ -3248,7 +3252,7 @@ if (!function_exists('smf_crc32'))
 {
 	/**
 	 * crc32 doesn't work as expected on 64-bit functions - make our own.
-	 * http://www.php.net/crc32#79567
+	 * https://php.net/crc32#79567
 	 *
 	 * @param string $number
 	 * @return string The crc32

@@ -7,7 +7,7 @@
  *
  * @package SMF
  * @author Simple Machines http://www.simplemachines.org
- * @copyright 2016 Simple Machines and individual contributors
+ * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
  * @version 2.1 Beta 3
@@ -20,24 +20,16 @@ define('SMF', 'proxy');
  */
 class ProxyServer
 {
-	/**
-	 * @var bool $enabled Whether or not this is enabled
-	 */
+	/** @var bool $enabled Whether or not this is enabled */
 	protected $enabled;
 
-	/**
-	 * @var int $maxSize The maximum size for files to cache
-	 */
+	/** @var int $maxSize The maximum size for files to cache */
 	protected $maxSize;
 
-	/**
-	 * @var string $secret A secret code used for hashing
-	 */
+	/** @var string $secret A secret code used for hashing */
 	protected $secret;
 
-	/**
-	 * @var string The cache directory
-	 */
+	/** @var string The cache directory */
 	protected $cache;
 
 	/**
@@ -51,6 +43,11 @@ class ProxyServer
 
 		require_once(dirname(__FILE__) . '/Settings.php');
 		require_once($sourcedir . '/Class-CurlFetchWeb.php');
+		require_once($sourcedir . '/Subs.php');
+
+
+		// Turn off all error reporting; any extra junk makes for an invalid image.
+		error_reporting(0);
 
 		$this->enabled = (bool) $image_proxy_enabled;
 		$this->maxSize = (int) $image_proxy_maxsize;
@@ -101,6 +98,14 @@ class ProxyServer
 		$request = $_GET['request'];
 		$cached_file = $this->getCachedPath($request);
 		$cached = json_decode(file_get_contents($cached_file), true);
+		
+		// Did we get an error when trying to fetch the image
+		$response = $this->checkRequest();
+		if (is_int($response)) {
+			// Throw a 404
+			header('HTTP/1.0 404 Not Found');
+			exit;
+		}
 
 		// Is the cache expired?
 		if (!$cached || time() - $cached['time'] > (5 * 86400))
@@ -108,8 +113,12 @@ class ProxyServer
 			@unlink($cached_file);
 			if ($this->checkRequest())
 				$this->serve();
-			exit;
+			redirectexit($request);
 		}
+
+		// Right, image not cached? Simply redirect, then.
+		if (!$response)
+		    redirectexit($request);
 
 		// Make sure we're serving an image
 		$contentParts = explode('/', !empty($cached['content_type']) ? $cached['content_type'] : '');
@@ -150,7 +159,7 @@ class ProxyServer
 	 *
 	 * @access protected
 	 * @param string $request The image to cache/validate
-	 * @return bool Whether the specified image was cached
+	 * @return bool|int Whether the specified image was cached or error code when accessing
 	 */
 	protected function cacheImage($request)
 	{
@@ -158,10 +167,15 @@ class ProxyServer
 
 		$curl = new curl_fetch_web_data(array(CURLOPT_BINARYTRANSFER => 1));
 		$request = $curl->get_url_data($request);
+		$responseCode = $request->result('code');
 		$response = $request->result();
 
 		if (empty($response))
 			return false;
+		
+		if ($responseCode != 200) {
+			return $request->result('code');
+		}
 
 		$headers = $response['headers'];
 
@@ -184,7 +198,6 @@ class ProxyServer
 }
 
 $proxy = new ProxyServer();
-if ($proxy->checkRequest())
-	$proxy->serve();
+$proxy->serve();
 
-exit;
+?>

@@ -10,7 +10,7 @@
  *
  * @package SMF
  * @author Simple Machines http://www.simplemachines.org
- * @copyright 2016 Simple Machines and individual contributors
+ * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
  * @version 2.1 Beta 3
@@ -155,7 +155,7 @@ function sha1_raw($text)
 /**
  * Compatibility function.
  * crc32 doesn't work as expected on 64-bit functions - make our own.
- * http://www.php.net/crc32#79567
+ * https://php.net/crc32#79567
  * @param string $number
  * @return string The crc32 polynomial of $number
  */

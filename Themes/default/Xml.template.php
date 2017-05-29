@@ -4,7 +4,7 @@
  *
  * @package SMF
  * @author Simple Machines http://www.simplemachines.org
- * @copyright 2016 Simple Machines and individual contributors
+ * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
  * @version 2.1 Beta 3
@@ -47,7 +47,7 @@ function template_modifyfast()
 <smf>
 	<subject><![CDATA[', cleanXml($context['message']['subject']), ']]></subject>
 	<message id="msg_', $context['message']['id'], '"><![CDATA[', cleanXml($context['message']['body']), ']]></message>
-	<reason time="', $context['message']['reason']['time'] ,'" name="', $context['message']['reason']['name'] ,'"><![CDATA[', cleanXml($context['message']['reason']['text']), ']]></reason>
+	<reason time="', $context['message']['reason']['time'], '" name="', $context['message']['reason']['name'], '"><![CDATA[', cleanXml($context['message']['reason']['text']), ']]></reason>
 </smf>';
 
 }
@@ -67,10 +67,10 @@ function template_modifydone()
 		// Build our string of info about when and why it was modified
 
 		$modified = empty($context['message']['modified']['time']) ? '' : sprintf($txt['last_edit_by'], $context['message']['modified']['time'], $context['message']['modified']['name']);
-		$modified .= empty($context['message']['modified']['reason']) ? '' : ' '. sprintf($txt['last_edit_reason'], $context['message']['modified']['reason']);
+		$modified .= empty($context['message']['modified']['reason']) ? '' : ' ' . sprintf($txt['last_edit_reason'], $context['message']['modified']['reason']);
 
 		echo '
-		<modified><![CDATA[', empty($modified) ? '' : cleanXml('&#171; <em>' . $modified . '</em>&#187;'), ']]></modified>
+		<modified><![CDATA[', empty($modified) ? '' : cleanXml($modified), ']]></modified>
 		<subject is_first="', $context['message']['first_in_topic'] ? '1' : '0', '"><![CDATA[', cleanXml($context['message']['subject']), ']]></subject>
 		<body><![CDATA[', $context['message']['body'], ']]></body>
 		<success><![CDATA[', $txt['quick_modify_message'], ']]></success>';

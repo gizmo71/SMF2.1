@@ -7,7 +7,7 @@
  *
  * @package SMF
  * @author Simple Machines http://www.simplemachines.org
- * @copyright 2016 Simple Machines and individual contributors
+ * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
  * @version 2.1 Beta 3
@@ -237,7 +237,7 @@ function ModifyPostSettings($return_config = false)
 		checkSession();
 
 		// If we're changing the message length (and we are using MySQL) let's check the column is big enough.
-		if (isset($_POST['max_messageLength']) && $_POST['max_messageLength'] != $modSettings['max_messageLength'] && ($db_type == 'mysql' || $db_type == 'mysqli'))
+		if (isset($_POST['max_messageLength']) && $_POST['max_messageLength'] != $modSettings['max_messageLength'] && ($db_type == 'mysql'))
 		{
 			db_extend('packages');
 

@@ -29,14 +29,14 @@ $txt['age'] = 'Age';
 $txt['no_pic'] = '(no pic)';
 $txt['latest_posts'] = 'Latest posts of: ';
 $txt['additional_info'] = 'Additional Information';
-$txt['avatar_by_url'] = 'Specify your own avatar by URL. (e.g.: <em>http://www.mypage.com/mypic.png</em>)';
+$txt['avatar_by_url'] = 'Specify your own avatar by URL. (e.g.: <em>https://www.example.com/mypic.png</em>)';
 $txt['my_own_pic'] = 'Specify avatar by URL';
 $txt['use_gravatar'] = 'Use my Gravatar';
 $txt['gravatar_alternateEmail'] = 'Normally, the Gravatar used will be based on your regular email address but if you wish to use the Gravatar from a different email account to your regular forum account (say, the Gravatar from your blog\'s email account), you can enter that email address here.';
 $txt['gravatar_noAlternateEmail'] = 'The Gravatar displayed will be the one based on your account\'s email address.';
 $txt['date_format'] = 'The format here will be used to show dates throughout this forum.';
 $txt['time_format'] = 'Time Format';
-$txt['timezone'] = 'Timezone';
+$txt['timezone'] = 'Time zone';
 $txt['display_name_desc'] = 'This is the displayed name that people will see.';
 $txt['personal_time_offset'] = 'Number of hours to +/- to make displayed time equal to your local time.';
 $txt['dob'] = 'Birthdate';
@@ -563,4 +563,11 @@ $txt['tfa_preserve'] = 'Remember this computer for 30 days (not recommended on s
 $txt['tfa_backup_code'] = 'Backup code';
 $txt['tfa_backup_desc'] = 'In case you have lost your device or authentication app, you can use the backup code provided to you when 2FA was setup. In case you have lost that as well, please contact the administrator';
 $txt['tfa_wait'] = 'Please wait for about 2 minutes before attempting to log in via 2FA again';
+
+$txt['theme_opt_calendar'] = 'Calendar';
+$txt['theme_opt_display'] = 'Board and topic display';
+$txt['theme_opt_posting'] = 'Posting';
+$txt['theme_opt_moderation'] = 'Moderation';
+$txt['theme_opt_personal_messages'] = 'Personal Messages';
+
 ?>

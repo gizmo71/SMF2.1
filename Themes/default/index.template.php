@@ -4,7 +4,7 @@
  *
  * @package SMF
  * @author Simple Machines http://www.simplemachines.org
- * @copyright 2016 Simple Machines and individual contributors
+ * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
  * @version 2.1 Beta 3
@@ -32,7 +32,7 @@
 	wants and or needs.
 
 	For more information on the templating system, please see the site at:
-	http://www.simplemachines.org/
+	https://www.simplemachines.org/
 */
 
 /**
@@ -85,7 +85,7 @@ function template_html_above()
 
 	// Show right to left, the language code, and the character set for ease of translating.
 	echo '<!DOCTYPE html>
-	<html', $context['right_to_left'] ? ' dir="rtl"' : '', !empty($txt['lang_locale']) ? ' lang="' . str_replace("_", "-", substr($txt['lang_locale'], 0, strcspn($txt['lang_locale'], "."))) . '"' : '' , '>
+	<html', $context['right_to_left'] ? ' dir="rtl"' : '', !empty($txt['lang_locale']) ? ' lang="' . str_replace("_", "-", substr($txt['lang_locale'], 0, strcspn($txt['lang_locale'], "."))) . '"' : '', '>
 <head>
 	<meta charset="', $context['character_set'], '">';
 
@@ -141,8 +141,8 @@ function template_html_above()
 	// If RSS feeds are enabled, advertise the presence of one.
 	if (!empty($modSettings['xmlnews_enable']) && (!empty($modSettings['allow_guestAccess']) || $context['user']['is_logged']))
 		echo '
-	<link rel="alternate" type="application/rss+xml" title="', $context['forum_name_html_safe'], ' - ', $txt['rss'], '" href="', $scripturl, '?type=rss2;action=.xml">
-	<link rel="alternate" type="application/rss+xml" title="', $context['forum_name_html_safe'], ' - ', $txt['atom'], '" href="', $scripturl, '?type=atom;action=.xml">';
+	<link rel="alternate feed" type="application/rss+xml" title="', $context['forum_name_html_safe'], ' - ', $txt['rss'], '" href="', $scripturl, '?action=.xml;type=rss2', !empty($context['current_board']) ? ';board=' . $context['current_board'] : '', '">
+	<link rel="alternate feed" type="application/atom+xml" title="', $context['forum_name_html_safe'], ' - ', $txt['atom'], '" href="', $scripturl, '?action=.xml;type=atom', !empty($context['current_board']) ? ';board=' . $context['current_board'] : '', '">';
 
 	// If we're viewing a topic, these should be the previous and next topics, respectively.
 	if (!empty($context['links']['next']))
@@ -177,7 +177,7 @@ function template_html_above()
  */
 function template_body_above()
 {
-	global $context, $settings, $scripturl, $txt, $modSettings;
+	global $context, $settings, $scripturl, $txt, $modSettings, $maintenance;
 
 	// Wrapper div now echoes permanently for better layout options. h1 a is now target for "Go up" links.
 	echo '
@@ -210,7 +210,7 @@ function template_body_above()
 		// Thirdly, alerts
 		echo '
 			<li>
-				<a href="', $scripturl, '?action=profile;area=showalerts;u=', $context['user']['id'] ,'"', !empty($context['self_alerts']) ? ' class="active"' : '', ' id="alerts_menu_top">', $txt['alerts'], !empty($context['user']['alerts']) ? ' <span class="amt">' . $context['user']['alerts'] . '</span>' : '', '</a>
+				<a href="', $scripturl, '?action=profile;area=showalerts;u=', $context['user']['id'], '"', !empty($context['self_alerts']) ? ' class="active"' : '', ' id="alerts_menu_top">', $txt['alerts'], !empty($context['user']['alerts']) ? ' <span class="amt">' . $context['user']['alerts'] . '</span>' : '', '</a>
 				<div id="alerts_menu" class="top_menu scrollable"></div>
 			</li>';
 
@@ -220,10 +220,17 @@ function template_body_above()
 	}
 	// Otherwise they're a guest. Ask them to either register or login.
 	else
-		echo '
-		<ul class="floatleft welcome">
-			<li>', sprintf($txt[$context['can_register'] ? 'welcome_guest_register' : 'welcome_guest'], $txt['guest_title'], $context['forum_name_html_safe'], $scripturl . '?action=login', 'return reqOverlayDiv(this.href, ' . JavaScriptEscape($txt['login']) . ');', $scripturl . '?action=signup'), '</li>
-		</ul>';
+		if (empty($maintenance))
+			echo '
+			<ul class="floatleft welcome">
+				<li>', sprintf($txt[$context['can_register'] ? 'welcome_guest_register' : 'welcome_guest'], $txt['guest_title'], $context['forum_name_html_safe'], $scripturl . '?action=login', 'return reqOverlayDiv(this.href, ' . JavaScriptEscape($txt['login']) . ');', $scripturl . '?action=signup'), '</li>
+			</ul>';
+		else
+			//In maintenance mode, only login is allowed and don't show OverlayDiv
+			echo '
+			<ul class="floatleft welcome">
+				<li>', sprintf($txt['welcome_guest'], $txt['guest_title'], '', $scripturl. '?action=login', 'return true;'), '</li>
+			</ul>';
 
 	if (!empty($modSettings['userLanguage']) && !empty($context['languages']) && count($context['languages']) > 1)
 	{
@@ -265,12 +272,12 @@ function template_body_above()
 		if (!empty($context['current_board']))
 			echo '
 				<option value="board"', ($selected == 'current_board' ? ' selected' : ''), '>', $txt['search_thisbrd'], '</option>';
-		
+
 		// Can't search for members if we can't see the memberlist
 		if (!empty($context['allow_memberlist']))
 			echo '
 				<option value="members"', ($selected == 'members' ? ' selected' : ''), '>', $txt['search_members'], ' </option>';
-				
+
 		echo '
 			</select>';
 
@@ -327,7 +334,7 @@ function template_body_above()
 				<a class="menu_icon mobile_user_menu"></a>
 				<div id="mobile_user_menu" class="popup_container">
 					<div class="popup_window description">
-						<div class="popup_heading">', $txt['mobile_user_menu'],'
+						<div class="popup_heading">', $txt['mobile_user_menu'], '
 						<a href="javascript:void(0);" class="generic_icons hide_popup"></a></div>
 						', template_menu(), '
 					</div>
@@ -374,7 +381,7 @@ function template_body_below()
 	// There is now a global "Go to top" link at the right.
 		echo '
 		<ul>
-			<li class="floatright"><a href="', $scripturl, '?action=help">', $txt['help'], '</a> ', (!empty($modSettings['requireAgreement'])) ? '| <a href="'. $scripturl. '?action=help;sa=rules">'. $txt['terms_and_rules']. '</a>' : '', ' | <a href="#top_section">', $txt['go_up'], ' &#9650;</a></li>
+			<li class="floatright"><a href="', $scripturl, '?action=help">', $txt['help'], '</a> ', (!empty($modSettings['requireAgreement'])) ? '| <a href="' . $scripturl . '?action=help;sa=rules">' . $txt['terms_and_rules'] . '</a>' : '', ' | <a href="#top_section">', $txt['go_up'], ' &#9650;</a></li>
 			<li class="copyright">', theme_copyright(), '</li>
 		</ul>';
 
@@ -479,9 +486,9 @@ function template_menu()
 	foreach ($context['menu_buttons'] as $act => $button)
 	{
 		echo '
-						<li class="button_', $act, '', !empty($button['sub_buttons']) ? ' subsections"' :'"', '>
+						<li class="button_', $act, '', !empty($button['sub_buttons']) ? ' subsections"' : '"', '>
 							<a', $button['active_button'] ? ' class="active"' : '', ' href="', $button['href'], '"', isset($button['target']) ? ' target="' . $button['target'] . '"' : '', '>
-								', $button['icon'],'<span class="textmenu">', $button['title'], '</span>
+								', $button['icon'], '<span class="textmenu">', $button['title'], '</span>
 							</a>';
 
 		if (!empty($button['sub_buttons']))
@@ -492,8 +499,8 @@ function template_menu()
 			foreach ($button['sub_buttons'] as $childbutton)
 			{
 				echo '
-								<li', !empty($childbutton['sub_buttons']) ? ' class="subsections"' :'', '>
-									<a href="', $childbutton['href'], '"' , isset($childbutton['target']) ? ' target="' . $childbutton['target'] . '"' : '', '>
+								<li', !empty($childbutton['sub_buttons']) ? ' class="subsections"' : '', '>
+									<a href="', $childbutton['href'], '"', isset($childbutton['target']) ? ' target="' . $childbutton['target'] . '"' : '', '>
 										', $childbutton['title'], '
 									</a>';
 				// 3rd level menus :)
@@ -505,7 +512,7 @@ function template_menu()
 					foreach ($childbutton['sub_buttons'] as $grandchildbutton)
 						echo '
 										<li>
-											<a href="', $grandchildbutton['href'], '"' , isset($grandchildbutton['target']) ? ' target="' . $grandchildbutton['target'] . '"' : '', '>
+											<a href="', $grandchildbutton['href'], '"', isset($grandchildbutton['target']) ? ' target="' . $grandchildbutton['target'] . '"' : '', '>
 												', $grandchildbutton['title'], '
 											</a>
 										</li>';
@@ -553,7 +560,7 @@ function template_button_strip($button_strip, $direction = '', $strip_options = 
 				$value['id'] = $key;
 
 			$button = '
-				<a class="button button_strip_' . $key . (!empty($value['active']) ? ' active' : '') . (isset($value['class']) ? ' '. $value['class'] : '') . '" ' . (!empty($value['url']) ? 'href="'. $value['url'] .'"' : '') . ' ' . (isset($value['custom']) ? ' ' . $value['custom'] : '') . '>' . $txt[$value['text']] . '</a>';
+				<a class="button button_strip_' . $key . (!empty($value['active']) ? ' active' : '') . (isset($value['class']) ? ' ' . $value['class'] : '') . '" ' . (!empty($value['url']) ? 'href="' . $value['url'] . '"' : '') . ' ' . (isset($value['custom']) ? ' ' . $value['custom'] : '') . '>' . $txt[$value['text']] . '</a>';
 
 			if (!empty($value['sub_buttons']))
 			{
@@ -587,7 +594,7 @@ function template_button_strip($button_strip, $direction = '', $strip_options = 
 		return;
 
 	echo '
-		<div class="buttonlist', !empty($direction) ? ' float' . $direction : '', '"', (empty($buttons) ? ' style="display: none;"' : ''), (!empty($strip_options['id']) ? ' id="' . $strip_options['id'] . '"': ''), '>
+		<div class="buttonlist', !empty($direction) ? ' float' . $direction : '', '"', (empty($buttons) ? ' style="display: none;"' : ''), (!empty($strip_options['id']) ? ' id="' . $strip_options['id'] . '"' : ''), '>
 			',implode('', $buttons), '
 		</div>';
 }

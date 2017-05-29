@@ -7,7 +7,7 @@
  *
  * @package SMF
  * @author Simple Machines http://www.simplemachines.org
- * @copyright 2016 Simple Machines and individual contributors
+ * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
  * @version 2.1 Beta 3
@@ -47,7 +47,7 @@ function HelpIndex()
 	global $scripturl, $context, $txt;
 
 	// We need to know where our wiki is.
-	$context['wiki_url'] = 'http://wiki.simplemachines.org/smf';
+	$context['wiki_url'] = 'https://wiki.simplemachines.org/smf';
 	$context['wiki_prefix'] = 'SMF2.1:';
 
 	$context['canonical_url'] = $scripturl . '?action=help';

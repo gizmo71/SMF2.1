@@ -44,7 +44,7 @@ CREATE TABLE {$db_prefix}attachments (
   downloads MEDIUMINT UNSIGNED NOT NULL DEFAULT '0',
   width MEDIUMINT UNSIGNED NOT NULL DEFAULT '0',
   height MEDIUMINT UNSIGNED NOT NULL DEFAULT '0',
-  mime_type VARCHAR(20) NOT NULL DEFAULT '',
+  mime_type VARCHAR(128) NOT NULL DEFAULT '',
   approved TINYINT NOT NULL DEFAULT '1',
   PRIMARY KEY (id_attach),
   UNIQUE idx_id_member (id_member, id_attach),
@@ -157,6 +157,10 @@ CREATE TABLE {$db_prefix}calendar (
   id_topic MEDIUMINT UNSIGNED NOT NULL DEFAULT '0',
   title VARCHAR(255) NOT NULL DEFAULT '',
   id_member MEDIUMINT UNSIGNED NOT NULL DEFAULT '0',
+  start_time time,
+  end_time time,
+  timezone VARCHAR(80),
+  location VARCHAR(255) NOT NULL DEFAULT '',
   PRIMARY KEY (id_event),
   INDEX idx_start_date (start_date),
   INDEX idx_end_date (end_date),
@@ -334,7 +338,7 @@ CREATE TABLE {$db_prefix}log_errors (
   ip VARBINARY(16),
   url TEXT NOT NULL,
   message TEXT NOT NULL,
-  session CHAR(64) NOT NULL DEFAULT '                                                                ',
+  session VARCHAR(128) NOT NULL DEFAULT '',
   error_type CHAR(15) NOT NULL DEFAULT 'general',
   file VARCHAR(255) NOT NULL DEFAULT '',
   line MEDIUMINT UNSIGNED NOT NULL DEFAULT '0',
@@ -414,7 +418,7 @@ CREATE TABLE {$db_prefix}log_notify (
 #
 
 CREATE TABLE {$db_prefix}log_online (
-  session VARCHAR(64) DEFAULT '',
+  session VARCHAR(128) DEFAULT '',
   log_time INT(10) NOT NULL DEFAULT '0',
   id_member MEDIUMINT UNSIGNED NOT NULL DEFAULT '0',
   id_spider SMALLINT UNSIGNED NOT NULL DEFAULT '0',
@@ -693,7 +697,6 @@ CREATE TABLE {$db_prefix}members (
   birthdate date NOT NULL DEFAULT '0001-01-01',
   website_title VARCHAR(255) NOT NULL DEFAULT '',
   website_url VARCHAR(255) NOT NULL DEFAULT '',
-  hide_email TINYINT NOT NULL DEFAULT '0',
   show_online TINYINT NOT NULL DEFAULT '1',
   time_format VARCHAR(80) NOT NULL DEFAULT '',
   signature TEXT NOT NULL,
@@ -1002,7 +1005,7 @@ CREATE TABLE {$db_prefix}settings (
 #
 
 CREATE TABLE {$db_prefix}sessions (
-  session_id CHAR(64),
+  session_id VARCHAR(128),
   last_update INT(10) UNSIGNED NOT NULL,
   data TEXT NOT NULL,
   PRIMARY KEY (session_id)
@@ -1727,7 +1730,7 @@ VALUES (1, 1, 1, 1, UNIX_TIMESTAMP(), '{$default_topic_subject}', 'Simple Machin
 
 INSERT INTO {$db_prefix}package_servers
 	(name, url)
-VALUES ('Simple Machines Third-party Mod Site', 'http://custom.simplemachines.org/packages/mods');
+VALUES ('Simple Machines Third-party Mod Site', 'https://custom.simplemachines.org/packages/mods');
 # --------------------------------------------------------
 
 #
@@ -1871,7 +1874,7 @@ VALUES ('smfVersion', '{$smf_version}'),
 	('cal_showholidays', '1'),
 	('cal_showbdays', '1'),
 	('cal_showevents', '1'),
-	('cal_maxspan', '7'),
+	('cal_maxspan', '0'),
 	('cal_highlight_events', '3'),
 	('cal_highlight_holidays', '3'),
 	('cal_highlight_birthdays', '3'),
@@ -2023,6 +2026,7 @@ VALUES ('smfVersion', '{$smf_version}'),
 	('tfa_mode', '1'),
 	('allow_expire_redirect', '1'),
 	('json_done', '1'),
+	('displayFields', '[{"col_name":"cust_aolins","title":"AOL Instant Messenger","type":"text","order":"1","bbc":"0","placement":"1","enclose":"<a class=\\"aim\\" href=\\"aim:goim?screenname={INPUT}&message=Hello!+Are+you+there?\\" target=\\"_blank\\" title=\\"AIM - {INPUT}\\"><img src=\\"{IMAGES_URL}\\/aim.png\\" alt=\\"AIM - {INPUT}\\"><\\/a>","mlist":"0"},{"col_name":"cust_icq","title":"ICQ","type":"text","order":"2","bbc":"0","placement":"1","enclose":"<a class=\\"icq\\" href=\\"\\/\\/www.icq.com\\/people\\/{INPUT}\\" target=\\"_blank\\" title=\\"ICQ - {INPUT}\\"><img src=\\"{DEFAULT_IMAGES_URL}\\/icq.png\\" alt=\\"ICQ - {INPUT}\\"><\\/a>","mlist":"0"},{"col_name":"cust_skype","title":"Skype","type":"text","order":"3","bbc":"0","placement":"1","enclose":"<a href=\\"skype:{INPUT}?call\\"><img src=\\"{DEFAULT_IMAGES_URL}\\/skype.png\\" alt=\\"{INPUT}\\" title=\\"{INPUT}\\" \\/><\\/a> ","mlist":"0"},{"col_name":"cust_yahoo","title":"Yahoo! Messenger","type":"text","order":"4","bbc":"0","placement":"1","enclose":"<a class=\\"yim\\" href=\\"\\/\\/edit.yahoo.com\\/config\\/send_webmesg?.target={INPUT}\\" target=\\"_blank\\" title=\\"Yahoo! Messenger - {INPUT}\\"><img src=\\"{IMAGES_URL}\\/yahoo.png\\" alt=\\"Yahoo! Messenger - {INPUT}\\"><\\/a>","mlist":"0"},{"col_name":"cust_loca","title":"Location","type":"text","order":"5","bbc":"0","placement":"0","enclose":"","mlist":"0"},{"col_name":"cust_gender","title":"Gender","type":"radio","order":"6","bbc":"0","placement":"1","enclose":"<span class=\\" generic_icons gender_{INPUT}\\" title=\\"{INPUT}\\"><\\/span>","mlist":"0"}]'),
 	('minimize_files', '1');
 
 # --------------------------------------------------------

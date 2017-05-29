@@ -7,7 +7,7 @@
  *
  * @package SMF
  * @author Simple Machines http://www.simplemachines.org
- * @copyright 2016 Simple Machines and individual contributors
+ * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
  * @version 2.1 Beta 3
@@ -452,7 +452,7 @@ function scheduled_daily_maintenance()
 
 	// Check the database version - for some buggy MySQL version.
 	$server_version = $smcFunc['db_server_info']();
-	if (($db_type == 'mysql' || $db_type == 'mysqli') && in_array(substr($server_version, 0, 6), array('5.0.50', '5.0.51')))
+	if (($db_type == 'mysql') && in_array(substr($server_version, 0, 6), array('5.0.50', '5.0.51')))
 		updateSettings(array('db_mysql_group_by_fix' => '1'));
 	elseif (!empty($modSettings['db_mysql_group_by_fix']))
 		$smcFunc['db_query']('', '
@@ -644,7 +644,6 @@ function scheduled_daily_digest()
 	$prefs = getNotifyPrefs(array_keys($members), array('msg_notify_type', 'msg_notify_pref'), true);
 
 	// Right - send out the silly things - this will take quite some space!
-	$emails = array();
 	foreach ($members as $mid => $member)
 	{
 		$frequency = !empty($prefs[$mid]['msg_notify_pref']) ? $prefs[$mid]['msg_notify_pref'] : 1;
@@ -1092,9 +1091,7 @@ function next_time($regularity, $unit, $offset)
 	if ($regularity == 0)
 		$regularity = 2;
 
-	$curHour = date('H', time());
 	$curMin = date('i', time());
-	$next_time = 9999999999;
 
 	// If the unit is minutes only check regularity in minutes.
 	if ($unit == 'm')
@@ -1249,7 +1246,7 @@ function scheduled_fetchSMfiles()
 	foreach ($js_files as $ID_FILE => $file)
 	{
 		// Create the url
-		$server = empty($file['path']) || (substr($file['path'], 0, 7) != 'http://' && substr($file['path'], 0, 8) != 'https://') ? 'http://www.simplemachines.org' : '';
+		$server = empty($file['path']) || (substr($file['path'], 0, 7) != 'http://' && substr($file['path'], 0, 8) != 'https://') ? 'https://www.simplemachines.org' : '';
 		$url = $server . (!empty($file['path']) ? $file['path'] : $file['path']) . $file['filename'] . (!empty($file['parameters']) ? '?' . $file['parameters'] : '');
 
 		// Get the file

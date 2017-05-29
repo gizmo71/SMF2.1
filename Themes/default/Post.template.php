@@ -4,7 +4,7 @@
  *
  * @package SMF
  * @author Simple Machines http://www.simplemachines.org
- * @copyright 2016 Simple Machines and individual contributors
+ * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
  * @version 2.1 Beta 3
@@ -134,62 +134,23 @@ function template_main()
 	echo '
 					<dl id="post_header">';
 
-	// Custom posting fields.
+	// All the posting fields (subject, message icon, guest name & email, etc.)
+	// Mod & theme authors can use the 'integrate_post_end' hook to modify or add to these (see Post.php)
 	if (!empty($context['posting_fields']) && is_array($context['posting_fields']))
-		foreach ($context['posting_fields'] as $pf)
-			echo '
-						<dt>
-							', $pf['dt'] ,'
-						</dt>
-						<dd>
-							', $pf['dd'] ,'
-						</dd>';
-
-
-	// Guests have to put in their name and email...
-	if (isset($context['name']) && isset($context['email']))
 	{
-		echo '
-						<dt>
-							<span', isset($context['post_error']['long_name']) || isset($context['post_error']['no_name']) || isset($context['post_error']['bad_name']) ? ' class="error"' : '', ' id="caption_guestname">', $txt['name'], ':</span>
-						</dt>
-						<dd>
-							<input type="text" name="guestname" size="25" value="', $context['name'], '" tabindex="', $context['tabindex']++, '" class="input_text">
-						</dd>';
-
-		if (empty($modSettings['guest_post_no_email']))
+		foreach ($context['posting_fields'] as $pfid => $pf)
+		{
 			echo '
-						<dt>
-							<span', isset($context['post_error']['no_email']) || isset($context['post_error']['bad_email']) ? ' class="error"' : '', ' id="caption_email">', $txt['email'], ':</span>
+						<dt class="clear', !is_numeric($pfid) ? ' pf_' . $pfid : '', '">
+							', $pf['dt'], '
 						</dt>
-						<dd>
-							<input type="email" name="email" size="25" value="', $context['email'], '" tabindex="', $context['tabindex']++, '" class="input_text" required>
+						<dd', !is_numeric($pfid) ? ' class="pf_' . $pfid . '"' : '', '>
+							', preg_replace('~<(input|select|textarea|button|area|a|object)\b~', '<$1 tabindex="' . $context['tabindex']++ . '"', $pf['dd']), '
 						</dd>';
+		}
 	}
 
-	// Now show the subject box for this post.
 	echo '
-						<dt class="clear">
-							<span', isset($context['post_error']['no_subject']) ? ' class="error"' : '', ' id="caption_subject">', $txt['subject'], ':</span>
-						</dt>
-						<dd>
-							<input type="text" name="subject"', $context['subject'] == '' ? '' : ' value="' . $context['subject'] . '"', ' tabindex="', $context['tabindex']++, '" size="80" maxlength="80"', isset($context['post_error']['no_subject']) ? ' class="error"' : ' class="input_text"', ' required>
-						</dd>
-						<dt class="clear_left">
-							', $txt['message_icon'], ':
-						</dt>
-						<dd>
-							<select name="icon" id="icon" onchange="showimage()">';
-
-	// Loop through each message icon allowed, adding it to the drop down list.
-	foreach ($context['icons'] as $icon)
-		echo '
-								<option value="', $icon['value'], '"', $icon['value'] == $context['icon'] ? ' selected' : '', '>', $icon['name'], '</option>';
-
-	echo '
-							</select>
-							<img src="', $context['icon_url'], '" id="icons" alt="">
-						</dd>
 					</dl>';
 
 	// Are you posting a calendar event?
@@ -199,96 +160,77 @@ function template_main()
 					<hr class="clear">
 					<div id="post_event">
 						<fieldset id="event_main">
-							<legend><span', isset($context['post_error']['no_event']) ? ' class="error"' : '', ' id="caption_evtitle">', $txt['calendar_event_title'], '</span></legend>
-							<input type="text" name="evtitle" maxlength="255" size="55" value="', $context['event']['title'], '" tabindex="', $context['tabindex']++, '" class="input_text">
-							<div class="smalltext" style="white-space: nowrap;">
-								<input type="hidden" name="calendar" value="1">', $txt['calendar_year'], '
-								<select name="year" id="year" tabindex="', $context['tabindex']++, '" onchange="generateDays();">';
-
-		// Show a list of all the years we allow...
-		for ($year = $modSettings['cal_minyear']; $year <= $modSettings['cal_maxyear']; $year++)
-			echo '
-									<option value="', $year, '"', $year == $context['event']['year'] ? ' selected' : '', '>', $year, '&nbsp;</option>';
-
-		echo '
-								</select>
-								', $txt['calendar_month'], '
-								<select name="month" id="month" onchange="generateDays();">';
-
-		// There are 12 months per year - ensure that they all get listed.
-		for ($month = 1; $month <= 12; $month++)
-			echo '
-									<option value="', $month, '"', $month == $context['event']['month'] ? ' selected' : '', '>', $txt['months'][$month], '&nbsp;</option>';
-
-		echo '
-								</select>
-								', $txt['calendar_day'], '
-								<select name="day" id="day">';
-
-		// This prints out all the days in the current month - this changes dynamically as we switch months.
-		for ($day = 1; $day <= $context['event']['last_day']; $day++)
-			echo '
-									<option value="', $day, '"', $day == $context['event']['day'] ? ' selected' : '', '>', $day, '&nbsp;</option>';
-
-		echo '
-								</select>
-							</div>
-						</fieldset>';
-
-		if (!empty($modSettings['cal_allowspan']) || ($context['event']['new'] && $context['is_new_post']))
-		{
-			echo '
-						<fieldset id="event_options">
-							<legend>', $txt['calendar_event_options'], '</legend>
-							<div class="event_options smalltext">
-								<ul class="event_options">';
-
-			// If events can span more than one day then allow the user to select how long it should last.
-			if (!empty($modSettings['cal_allowspan']))
-			{
-				echo '
-									<li>
-										', $txt['calendar_numb_days'], '
-										<select name="span">';
-
-				for ($days = 1; $days <= $modSettings['cal_maxspan']; $days++)
-					echo '
-											<option value="', $days, '"', $days == $context['event']['span'] ? ' selected' : '', '>', $days, '&nbsp;</option>';
-
-				echo '
-										</select>
-									</li>';
-			}
+							<legend><span', isset($context['post_error']['no_event']) ? ' class="error"' : '', '>', $txt['calendar_event_title'], '</span></legend>
+							<input type="hidden" name="calendar" value="1">
+							<div class="event_options_left" id="event_title">
+								<div>
+									<input type="text" id="evtitle" name="evtitle" maxlength="255" size="55" value="', $context['event']['title'], '" tabindex="', $context['tabindex']++, '" class="input_text">
+								</div>
+							</div>';
 
 			// If this is a new event let the user specify which board they want the linked post to be put into.
 			if ($context['event']['new'] && $context['is_new_post'])
 			{
 				echo '
-									<li>
-										', $txt['calendar_post_in'], '
-										<select name="board">';
+							<div class="event_options_right" id="event_board">
+								<div>
+									<span class="label">', $txt['calendar_post_in'], '</span>
+									<select name="board">';
 				foreach ($context['event']['categories'] as $category)
 				{
 					echo '
-											<optgroup label="', $category['name'], '">';
+										<optgroup label="', $category['name'], '">';
 					foreach ($category['boards'] as $board)
 						echo '
-												<option value="', $board['id'], '"', $board['selected'] ? ' selected' : '', '>', $board['child_level'] > 0 ? str_repeat('==', $board['child_level'] - 1) . '=&gt;' : '', ' ', $board['name'], '&nbsp;</option>';
+											<option value="', $board['id'], '"', $board['selected'] ? ' selected' : '', '>', $board['child_level'] > 0 ? str_repeat('==', $board['child_level'] - 1) . '=&gt;' : '', ' ', $board['name'], '&nbsp;</option>';
 					echo '
-											</optgroup>';
+										</optgroup>';
 				}
 				echo '
-										</select>
-									</li>';
+									</select>
+								</div>
+							</div>';
 			}
 
+			// Note to theme writers: The JavaScripts expect the input fields for the start and end dates & times to be contained in a wrapper element with the id "event_time_input"
 			echo '
-								</ul>
+						</fieldset>
+						<fieldset id="event_options">
+							<legend>', $txt['calendar_event_options'], '</legend>
+							<div class="event_options_left" id="event_time_input">
+								<div>
+									<span class="label">', $txt['start'], '</span>
+									<input type="text" name="start_date" id="start_date" maxlength="10" value="', $context['event']['start_date'], '" tabindex="', $context['tabindex']++, '" class="input_text date_input start" data-type="date">
+									<input type="text" name="start_time" id="start_time" maxlength="11" value="', $context['event']['start_time'], '" tabindex="', $context['tabindex']++, '" class="input_text time_input start" data-type="time"', !empty($context['event']['allday']) ? ' disabled' : '', '>
+								</div>
+								<div>
+									<span class="label">', $txt['end'], '</span>
+									<input type="text" name="end_date" id="end_date" maxlength="10" value="', $context['event']['end_date'], '" tabindex="', $context['tabindex']++, '" class="input_text date_input end" data-type="date"', $modSettings['cal_maxspan'] == 1 ? ' disabled' : '', '>
+									<input type="text" name="end_time" id="end_time" maxlength="11" value="', $context['event']['end_time'], '" tabindex="', $context['tabindex']++, '" class="input_text time_input end" data-type="time"', !empty($context['event']['allday']) ? ' disabled' : '', '>
+								</div>
 							</div>
-						</fieldset>';
-		}
+							<div class="event_options_right" id="event_time_options">
+								<div id="event_allday">
+									<label for="allday"><span class="label">', $txt['calendar_allday'], '</span></label>
+									<input type="checkbox" name="allday" id="allday"', !empty($context['event']['allday']) ? ' checked' : '', ' tabindex="', $context['tabindex']++, '">
+								</div>
+								<div id="event_timezone">
+									<span class="label">', $txt['calendar_timezone'], '</span>
+									<select name="tz" id="tz"', !empty($context['event']['allday']) ? ' disabled' : '', '>';
 
-		echo '
+			foreach ($context['all_timezones'] as $tz => $tzname)
+				echo '
+										<option value="', $tz, '"', $tz == $context['event']['tz'] ? ' selected' : '', '>', $tzname, '</option>';
+
+			echo '
+									</select>
+								</div>
+							</div>
+							<div>
+								<span class="label">', $txt['location'], '</span>
+								<input type="text" name="event_location" id="event_location" maxlength="255" value="', $context['event']['location'], '" tabindex="', $context['tabindex']++, '" class="input_text">
+							</div>
+						</fieldset>
 					</div>';
 	}
 
@@ -453,19 +395,30 @@ function template_main()
 									<img data-dz-thumbnail />
 								</div>
 								<div class="attach-info">
-									<p class="name" data-dz-name></p>
-									<p class="error" data-dz-errormessage></p>
-									<p class="size" data-dz-size></p>
-									<p class="message" data-dz-message></p>
-									<p class="attached_BBC">
+									<div>
+										<span class="name" data-dz-name></span>
+										<span class="error" data-dz-errormessage></span>
+										<span class="size" data-dz-size></span>
+										<span class="message" data-dz-message></span>
+									</div>
+									<div class="attached_BBC">
 										<input type="text" name="attachBBC" value="" readonly>
-										<a class="button_submit insertBBC">', $txt['attached_insertBBC'] ,'</a>
-									</p>
-									<p class="progressBar" role="progressBar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span></span></p>
-								</div>
-								<div class="attach-ui">
-									<a data-dz-remove class="button_submit delete">', $txt['modify_cancel'] ,'</a>
-									<a class="button_submit start">', $txt['upload'] ,'</a>
+										<div class="attached_BBC_width_height">
+											<div class="attached_BBC_width">
+												<label for="attached_BBC_width">', $txt['attached_insertwidth'], '</label>
+												<input type="number" name="attached_BBC_width" min="0" value="" placeholder="auto">
+											</div>
+											<div class="attached_BBC_height">
+												<label for="attached_BBC_height">', $txt['attached_insertheight'], '</label>
+												<input type="number" name="attached_BBC_height" min="0" value="" placeholder="auto">
+											</div>
+										</div>
+									</div>
+									<div class="progressBar" role="progressBar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span></span></div>
+									<div class="attach-ui">
+										<a data-dz-remove class="button_submit cancel">', $txt['modify_cancel'] ,'</a>
+										<a class="button_submit upload">', $txt['upload'] ,'</a>
+									</div>
 								</div>
 							</div>
 						</div>
@@ -649,9 +602,9 @@ function template_main()
 						{
 							// Handle the WYSIWYG editor.
 							if (textFields[i] == ', JavaScriptEscape($context['post_box_name']), ' && $("#', $context['post_box_name'], '").data("sceditor") != undefined)
-								x[x.length] = textFields[i] + \'=\' + $("#', $context['post_box_name'], '").data("sceditor").getText().replace(/&#/g, \'&#38;#\').php_to8bit().php_urlencode();
+								x[x.length] = textFields[i] + \'=\' + $("#', $context['post_box_name'], '").data("sceditor").getText().replace(/&#/g, \'&#38;#\');
 							else
-								x[x.length] = textFields[i] + \'=\' + document.forms.postmodify[textFields[i]].value.replace(/&#/g, \'&#38;#\').php_to8bit().php_urlencode();
+								x[x.length] = textFields[i] + \'=\' + document.forms.postmodify[textFields[i]].value.replace(/&#/g, \'&#38;#\');
 						}
 					for (var i = 0, n = numericFields.length; i < n; i++)
 						if (numericFields[i] in document.forms.postmodify && \'value\' in document.forms.postmodify[numericFields[i]])

@@ -7,7 +7,7 @@
  *
  * @package SMF
  * @author Simple Machines http://www.simplemachines.org
- * @copyright 2016 Simple Machines and individual contributors
+ * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
  * @version 2.1 Beta 3
@@ -1119,36 +1119,22 @@ function parse_bbc($message, $smileys = true, $cache_id = '', $parse_tags = arra
 
 					if (!empty($currentAttachment['is_image']))
 					{
-						$alt = !empty($params['{alt}']) ? ' alt="' . $params['{alt}'] . '"' : ' alt="' . $currentAttachment['name'] . '"';
-						$title = !empty($params['{title}']) ? ' title="' . $params['{alt}'] . '"' : '';
+						$alt = ' alt="' . (!empty($params['{alt}']) ? $params['{alt}'] : $currentAttachment['name']) . '"';
+						$title = !empty($params['{title}']) ? ' title="' . $params['{title}'] . '"' : '';
 
-						if (!empty($params['{width}']) && !empty($params['{height}']))
-						{
-							$width = ' width="' . $params['{width}'] . '"';
-							$height = ' height="' . $params['{height}'] . '"';
-						}
-						elseif (!empty($params['{width}']) && empty($params['{height}']))
-						{
-							$width = ' width="' . $params['{width}'] . '"';
-							$height = '';
-						}
-						elseif (empty($params['{width}']) && !empty($params['{height}']))
-						{
-							$width = '';
-							$height = ' height="' . $params['{height}'] . '"';
-						}
-						else
+						$width = !empty($params['{width}']) ? ' width="' . $params['{width}'] . '"' : '';
+						$height = !empty($params['{height}']) ? ' height="' . $params['{height}'] . '"' : '';
+
+						if (empty($width) && empty($height))
 						{
 							$width = ' width="' . $currentAttachment['width'] . '"';
 							$height = ' height="' . $currentAttachment['height'] . '"';
 						}
 
 						if ($currentAttachment['thumbnail']['has_thumb'] && empty($params['{width}']) && empty($params['{height}']))
-							$returnContext .= '
-													<a href="'. $currentAttachment['href']. ';image" id="link_'. $currentAttachment['id']. '" onclick="'. $currentAttachment['thumbnail']['javascript']. '"><img src="'. $currentAttachment['thumbnail']['href']. '" alt="' . $currentAttachment['name'] . '" id="thumb_'. $currentAttachment['id']. '"></a>';
+							$returnContext .= '<a href="'. $currentAttachment['href']. ';image" id="link_'. $currentAttachment['id']. '" onclick="'. $currentAttachment['thumbnail']['javascript']. '"><img src="'. $currentAttachment['thumbnail']['href']. '"' . $alt . $title . ' id="thumb_'. $currentAttachment['id']. '" class="atc_img"></a>';
 						else
-							$returnContext .= '
-													<img src="' . $currentAttachment['href'] . ';image" alt="' . $currentAttachment['name'] . '"' . $width . $height . '/>';
+							$returnContext .= '<img src="' . $currentAttachment['href'] . ';image"' . $alt . $title . $width . $height . ' class="bbc_img"/>';
 					}
 
 					// No image. Show a link.
@@ -1286,6 +1272,26 @@ function parse_bbc($message, $smileys = true, $cache_id = '', $parse_tags = arra
 				'disabled_content' => '<a href="$1" target="_blank" class="new_win">$1</a>',
 			),
 			array(
+				'tag' => 'float',
+				'type' => 'unparsed_equals',
+				'test' => '(left|right)(\s+max=\d+(?:%|px|em|rem|ex|pt|pc|ch|vw|vh|vmin|vmax|cm|mm|in)?)?\]',
+				'before' => '<div $1>',
+				'after' => '</div>',
+				'validate' => function (&$tag, &$data, $disabled)
+				{
+					$class = 'class="bbc_float float' . (strpos($data, 'left') === 0 ? 'left' : 'right') . '"';
+
+					if (preg_match('~\bmax=(\d+(?:%|px|em|rem|ex|pt|pc|ch|vw|vh|vmin|vmax|cm|mm|in)?)~', $data, $matches))
+						$css = ' style="max-width:' . $matches[1] . (is_numeric($matches[1]) ? 'px' : '') . '"';
+					else
+						$css = '';
+
+					$data = $class . $css;
+				},
+				'trim' => 'outside',
+				'block_level' => true,
+			),
+			array(
 				'tag' => 'font',
 				'type' => 'unparsed_equals',
 				'test' => '[A-Za-z0-9_,\-\s]+?\]',
@@ -1295,7 +1301,7 @@ function parse_bbc($message, $smileys = true, $cache_id = '', $parse_tags = arra
 			array(
 				'tag' => 'html',
 				'type' => 'unparsed_content',
-				'content' => '$1',
+				'content' => '<div>$1</div>',
 				'block_level' => true,
 				'disabled_content' => '$1',
 			),
@@ -1421,7 +1427,7 @@ function parse_bbc($message, $smileys = true, $cache_id = '', $parse_tags = arra
 			array(
 				'tag' => 'list',
 				'parameters' => array(
-					'type' => array('match' => '(none|disc|circle|square|decimal|decimal-leading-zero|lower-roman|upper-roman|lower-alpha|upper-alpha|lower-greek|lower-latin|upper-latin|hebrew|armenian|georgian|cjk-ideographic|hiragana|katakana|hiragana-iroha|katakana-iroha)'),
+					'type' => array('match' => '(none|disc|circle|square|decimal|decimal-leading-zero|lower-roman|upper-roman|lower-alpha|upper-alpha|lower-greek|upper-greek|lower-latin|upper-latin|hebrew|armenian|georgian|cjk-ideographic|hiragana|katakana|hiragana-iroha|katakana-iroha)'),
 				),
 				'before' => '<ul class="bbc_list" style="list-style-type: {type};">',
 				'after' => '</ul>',
@@ -1763,15 +1769,13 @@ function parse_bbc($message, $smileys = true, $cache_id = '', $parse_tags = arra
 	$open_tags = array();
 	$message = strtr($message, array("\n" => '<br>'));
 
+	$alltags = array();
 	foreach ($bbc_codes as $section) {
 		foreach ($section as $code) {
 			$alltags[] = $code['tag'];
 		}
 	}
 	$alltags_regex = '\b' . implode("\b|\b", array_unique($alltags)) . '\b';
-
-	// The non-breaking-space looks a bit different each time.
-	$non_breaking_space = $context['utf8'] ? '\x{A0}' : '\xA0';
 
 	$pos = -1;
 	while ($pos !== false)
@@ -2127,9 +2131,14 @@ function parse_bbc($message, $smileys = true, $cache_id = '', $parse_tags = arra
 				$pos2 = $pos - 1;
 
 				// See the comment at the end of the big loop - just eating whitespace ;).
-				if (!empty($tag['block_level']) && substr($message, $pos, 4) == '<br>')
-					$message = substr($message, 0, $pos) . substr($message, $pos + 4);
-				if (!empty($tag['trim']) && $tag['trim'] != 'inside' && preg_match('~(<br>|&nbsp;|\s)*~', substr($message, $pos), $matches) != 0)
+				$whitespace_regex = '';
+				if (!empty($tag['block_level']))
+					$whitespace_regex .= '(&nbsp;|\s)*<br>';
+				// Trim one line of whitespace after unnested tags, but all of it after nested ones
+				if (!empty($tag['trim']) && $tag['trim'] != 'inside')
+					$whitespace_regex .= empty($tag['require_parents']) ? '(&nbsp;|\s)*' : '(<br>|&nbsp;|\s)*';
+
+				if (!empty($whitespace_regex) && preg_match('~' . $whitespace_regex . '~', substr($message, $pos), $matches) != 0)
 					$message = substr($message, 0, $pos) . substr($message, $pos + strlen($matches[0]));
 			}
 
@@ -2402,9 +2411,12 @@ function parse_bbc($message, $smileys = true, $cache_id = '', $parse_tags = arra
 				$pos1 += $ot_strlen + 2;
 
 				// Trim or eat trailing stuff... see comment at the end of the big loop.
-				if (!empty($open_tags[$i]['block_level']) && substr($message, $pos, 4) == '<br>')
-					$message = substr($message, 0, $pos) . substr($message, $pos + 4);
-				if (!empty($open_tags[$i]['trim']) && $tag['trim'] != 'inside' && preg_match('~(<br>|&nbsp;|\s)*~', substr($message, $pos), $matches) != 0)
+				$whitespace_regex = '';
+				if (!empty($tag['block_level']))
+					$whitespace_regex .= '(&nbsp;|\s)*<br>';
+				if (!empty($tag['trim']) && $tag['trim'] != 'inside')
+					$whitespace_regex .= empty($tag['require_parents']) ? '(&nbsp;|\s)*' : '(<br>|&nbsp;|\s)*';
+				if (!empty($whitespace_regex) && preg_match('~' . $whitespace_regex . '~', substr($message, $pos), $matches) != 0)
 					$message = substr($message, 0, $pos) . substr($message, $pos + strlen($matches[0]));
 
 				array_pop($open_tags);
@@ -3184,7 +3196,6 @@ img.avatar { max-width: ' . $modSettings['avatar_max_width_external'] . 'px; max
 function setMemoryLimit($needed, $in_use = false)
 {
 	// everything in bytes
-	$memory_used = 0;
 	$memory_current = memoryReturnBytes(ini_get('memory_limit'));
 	$memory_needed = memoryReturnBytes($needed);
 
@@ -3300,10 +3311,8 @@ function template_header()
 				$path = $modSettings['attachmentUploadDir'][$modSettings['currentAttachmentUploadDir']];
 
 			else
-			{
 				$path = $modSettings['attachmentUploadDir'];
-				$id_folder_thumb = 1;
-			}
+
 			secureDirectory($path, true);
 			secureDirectory($cachedir);
 
@@ -3597,12 +3606,11 @@ function template_css()
  */
 function custMinify($data, $type, $do_deferred = false)
 {
-	global $sourcedir, $smcFunc, $settings, $txt, $context;
+	global $sourcedir, $settings, $txt;
 
 	$types = array('css', 'js');
 	$type = !empty($type) && in_array($type, $types) ? $type : false;
 	$data = !empty($data) ? $data : false;
-	$minFailed = array();
 
 	if (empty($type) || empty($data))
 		return false;
@@ -3613,12 +3621,6 @@ function custMinify($data, $type, $do_deferred = false)
 	// Already done?
 	if (!empty($toCache))
 		return true;
-
-	// Yep, need a bunch of files.
-	require_once($sourcedir . '/minify/src/Minify.php');
-	require_once($sourcedir . '/minify/src/'. strtoupper($type) .'.php');
-	require_once($sourcedir . '/minify/src/Exception.php');
-	require_once($sourcedir . '/minify/src/Converter.php');
 
 	// No namespaces, sorry!
 	$classType = 'MatthiasMullie\\Minify\\'. strtoupper($type);
@@ -3703,6 +3705,9 @@ function getAttachmentFilename($filename, $attachment_id, $dir = null, $new = fa
 	if ($new)
 		return sha1(md5($filename . time()) . mt_rand());
 
+	// Just make sure that attachment id is only a int
+	$attachment_id = (int) $attachment_id;
+
 	// Grab the file hash if it wasn't added.
 	// Left this for legacy.
 	if ($file_hash === '')
@@ -3727,7 +3732,7 @@ function getAttachmentFilename($filename, $attachment_id, $dir = null, $new = fa
 		$file_hash = sha1(md5($filename . time()) . mt_rand());
 
 	// Are we using multiple directories?
-	if (!empty($modSettings['currentAttachmentUploadDir']))
+	if (is_array($modSettings['attachmentUploadDir']))
 		$path = $modSettings['attachmentUploadDir'][$dir];
 
 	else
@@ -3947,97 +3952,6 @@ function create_button($name, $alt, $label = '', $custom = '', $force_use = fals
 		return '<span class="generic_icons ' . $name . '" alt="' . $txt[$alt] . '"></span>' . ($label != '' ? '&nbsp;<strong>' . $txt[$label] . '</strong>' : '');
 	else
 		return '<img src="' . $settings['lang_images_url'] . '/' . $name . '" alt="' . $txt[$alt] . '" ' . $custom . '>';
-}
-
-/**
- * Empty out the cache in use as best it can
- *
- * It may only remove the files of a certain type (if the $type parameter is given)
- * Type can be user, data or left blank
- * 	- user clears out user data
- *  - data clears out system / opcode data
- *  - If no type is specified will perform a complete cache clearing
- * For cache engines that do not distinguish on types, a full cache flush will be done
- *
- * @param string $type The cache type ('memcached', 'apc', 'xcache', 'zend' or something else for SMF's file cache)
- */
-function clean_cache($type = '')
-{
-	global $cachedir, $sourcedir, $cache_accelerator, $modSettings, $memcached;
-
-	switch ($cache_accelerator)
-	{
-		case 'memcached':
-			if (function_exists('memcache_flush') || function_exists('memcached_flush') && isset($modSettings['cache_memcached']) && trim($modSettings['cache_memcached']) != '')
-			{
-				// Not connected yet?
-				if (empty($memcached))
-					get_memcached_server();
-				if (!$memcached)
-					return;
-
-				// clear it out
-				if (function_exists('memcache_flush'))
-					memcache_flush($memcached);
-				else
-					memcached_flush($memcached);
-			}
-			break;
-		case 'apc':
-			if (function_exists('apc_clear_cache'))
-			{
-				// if passed a type, clear that type out
-				if ($type === '' || $type === 'data')
-				{
-					apc_clear_cache('user');
-					apc_clear_cache('system');
-				}
-				elseif ($type === 'user')
-					apc_clear_cache('user');
-			}
-			break;
-		case 'zend':
-			if (function_exists('zend_shm_cache_clear'))
-				zend_shm_cache_clear('SMF');
-			break;
-		case 'xcache':
-			if (function_exists('xcache_clear_cache'))
-			{
-				//
-				if ($type === '')
-				{
-					xcache_clear_cache(XC_TYPE_VAR, 0);
-					xcache_clear_cache(XC_TYPE_PHP, 0);
-				}
-				if ($type === 'user')
-					xcache_clear_cache(XC_TYPE_VAR, 0);
-				if ($type === 'data')
-					xcache_clear_cache(XC_TYPE_PHP, 0);
-			}
-			break;
-		default:
-			// No directory = no game.
-			if (!is_dir($cachedir))
-				return;
-
-			// Remove the files in SMF's own disk cache, if any
-			$dh = opendir($cachedir);
-			while ($file = readdir($dh))
-			{
-				if ($file != '.' && $file != '..' && $file != 'index.php' && $file != '.htaccess' && (!$type || substr($file, 0, strlen($type)) == $type))
-					@unlink($cachedir . '/' . $file);
-			}
-			closedir($dh);
-			break;
-	}
-
-	// Invalidate cache, to be sure!
-	// ... as long as index.php can be modified, anyway.
-	if (empty($type))
-		@touch($cachedir . '/' . 'index.php');
-
-	call_integration_hook('integrate_clean_cache');
-	clearstatcache();
 }
 
 /**
@@ -4598,9 +4512,6 @@ function call_helper($string, $return = false)
 	// Stay vitaminized my friends...
 	$string = $smcFunc['htmlspecialchars']($smcFunc['htmltrim']($string));
 
-	// The soon to be populated var.
-	$func = false;
-
 	// Is there a file to load?
 	$string = load_file($string);
 
@@ -4789,9 +4700,9 @@ function sanitizeMSCutPaste($string)
 
 	// UTF-8 occurences of MS special characters
 	$findchars_utf8 = array(
-		"\xe2\80\x9a",	// single low-9 quotation mark
-		"\xe2\80\x9e",	// double low-9 quotation mark
-		"\xe2\80\xa6",	// horizontal ellipsis
+		"\xe2\x80\x9a",	// single low-9 quotation mark
+		"\xe2\x80\x9e",	// double low-9 quotation mark
+		"\xe2\x80\xa6",	// horizontal ellipsis
 		"\xe2\x80\x98",	// left single curly quote
 		"\xe2\x80\x99",	// right single curly quote
 		"\xe2\x80\x9c",	// left double curly quote
@@ -4993,101 +4904,233 @@ function get_gravatar_url($email_address)
 }
 
 /**
- * Get a list of timezoned.
+ * Get a list of timezones.
  *
+ * @param string $when An optional date or time for which to calculate the timezone offset values. May be a Unix timestamp or any string that strtotime() can understand. Defaults to 'now'.
  * @return array An array of timezone info.
  */
-function smf_list_timezones()
+function smf_list_timezones($when = 'now')
 {
-	return array(
-		'' => '(Forum Default)',
-		'UTC' => '[UTC] UTC',
-		'Pacific/Midway' => '[UTC-11:00] Midway Island, Samoa',
-		'America/Adak' => '[UTC-10:00] Hawaii-Aleutian',
-		'Pacific/Honolulu' => '[UTC-10:00] Hawaii',
-		'Pacific/Marquesas' => '[UTC-09:30] Marquesas Islands',
-		'Pacific/Gambier' => '[UTC-09:00] Gambier Islands',
-		'America/Anchorage' => '[UTC-09:00] Alaska',
-		'America/Ensenada' => '[UTC-08:00] Tijuana, Baja California',
-		'Pacific/Pitcairn' => '[UTC-08:00] Pitcairn Islands',
-		'America/Los_Angeles' => '[UTC-08:00] Pacific Time (USA, Canada)',
-		'America/Denver' => '[UTC-07:00] Mountain Time (USA, Canada)',
-		'America/Phoenix' => '[UTC-07:00] Arizona',
-		'America/Chihuahua' => '[UTC-07:00] Chihuahua, Mazatlan',
-		'America/Belize' => '[UTC-06:00] Saskatchewan, Central America',
-		'America/Cancun' => '[UTC-06:00] Guadalajara, Mexico City, Monterrey',
-		'Chile/EasterIsland' => '[UTC-06:00] Easter Island',
-		'America/Chicago' => '[UTC-06:00] Central Time (USA, Canada)',
-		'America/New_York' => '[UTC-05:00] Eastern Time (USA, Canada)',
-		'America/Havana' => '[UTC-05:00] Cuba',
-		'America/Bogota' => '[UTC-05:00] Bogota, Lima, Quito',
-		'America/Caracas' => '[UTC-04:30] Caracas',
-		'America/Santiago' => '[UTC-04:00] Santiago',
-		'America/La_Paz' => '[UTC-04:00] La Paz, San Juan, Manaus',
-		'Atlantic/Stanley' => '[UTC-04:00] Falkland Islands',
-		'America/Cuiaba' => '[UTC-04:00] Cuiaba',
-		'America/Goose_Bay' => '[UTC-04:00] Atlantic Time (Goose Bay)',
-		'America/Glace_Bay' => '[UTC-04:00] Atlantic Time (Canada)',
-		'America/St_Johns' => '[UTC-03:30] Newfoundland',
-		'America/Araguaina' => '[UTC-03:00] Araguaina',
-		'America/Montevideo' => '[UTC-03:00] Montevideo',
-		'America/Miquelon' => '[UTC-03:00] Saint Pierre and Miquelon',
-		'America/Argentina/Buenos_Aires' => '[UTC-03:00] Buenos Aires',
-		'America/Sao_Paulo' => '[UTC-03:00] Brasilia',
-		'America/Godthab' => '[UTC-02:00] Greenland',
-		'America/Noronha' => '[UTC-02:00] Fernando de Noronha',
-		'Atlantic/Cape_Verde' => '[UTC-01:00] Cape Verde',
-		'Atlantic/Azores' => '[UTC-01:00] Azores',
-		'Africa/Abidjan' => '[UTC] Monrovia, Reykjavik',
-		'Europe/London' => '[UTC] London, Edinburgh, Dublin, Lisbon (Greenwich Mean Time)',
-		'Europe/Brussels' => '[UTC+01:00] Central European Time',
-		'Africa/Algiers' => '[UTC+01:00] West Central Africa',
-		'Africa/Windhoek' => '[UTC+01:00] Windhoek',
-		'Africa/Cairo' => '[UTC+02:00] Cairo',
-		'Africa/Blantyre' => '[UTC+02:00] Harare, Maputo, Pretoria',
-		'Asia/Jerusalem' => '[UTC+02:00] Jerusalem',
-		'Europe/Minsk' => '[UTC+02:00] Minsk',
-		'Asia/Damascus' => '[UTC+02:00] Damascus, Nicosia, Gaza, Beirut',
-		'Africa/Addis_Ababa' => '[UTC+03:00] Addis Ababa, Nairobi',
-		'Asia/Tehran' => '[UTC+03:30] Tehran',
-		'Europe/Moscow' => '[UTC+04:00] Moscow, St. Petersburg, Volgograd',
-		'Asia/Dubai' => '[UTC+04:00] Abu Dhabi, Muscat',
-		'Asia/Baku' => '[UTC+04:00] Baku',
-		'Asia/Yerevan' => '[UTC+04:00] Yerevan',
-		'Asia/Kabul' => '[UTC+04:30] Kabul',
-		'Asia/Tashkent' => '[UTC+05:00] Tashkent',
-		'Asia/Kolkata' => '[UTC+05:30] Chennai, Kolkata, Mumbai, New Delhi',
-		'Asia/Katmandu' => '[UTC+05:45] Kathmandu',
-		'Asia/Yekaterinburg' => '[UTC+06:00] Yekaterinburg, Tyumen',
-		'Asia/Dhaka' => '[UTC+06:00] Astana, Thimphu, Dhaka',
-		'Asia/Novosibirsk' => '[UTC+06:00] Omsk, Novosibirsk',
-		'Asia/Rangoon' => '[UTC+06:30] Yangon Rangoon',
-		'Asia/Bangkok' => '[UTC+07:00] Bangkok, Hanoi, Jakarta',
-		'Asia/Krasnoyarsk' => '[UTC+08:00] Krasnoyarsk',
-		'Asia/Hong_Kong' => '[UTC+08:00] Beijing, Chongqing, Hong Kong, Urumqi',
-		'Asia/Ulaanbaatar' => '[UTC+08:00] Ulaan Bataar',
-		'Asia/Irkutsk' => '[UTC+09:00] Irkutsk',
-		'Australia/Perth' => '[UTC+08:00] Perth',
-		'Australia/Eucla' => '[UTC+08:45] Eucla',
-		'Asia/Tokyo' => '[UTC+09:00] Tokyo, Osaka, Sapporo',
-		'Asia/Seoul' => '[UTC+09:00] Seoul',
-		'Australia/Adelaide' => '[UTC+09:30] Adelaide',
-		'Australia/Darwin' => '[UTC+09:30] Darwin',
-		'Australia/Brisbane' => '[UTC+10:00] Brisbane, Guam',
-		'Australia/Sydney' => '[UTC+10:00] Sydney, Hobart',
-		'Asia/Yakutsk' => '[UTC+10:00] Yakutsk',
-		'Australia/Lord_Howe' => '[UTC+10:30] Lord Howe Island',
-		'Asia/Vladivostok' => '[UTC+11:00] Vladivostok',
-		'Pacific/Noumea' => '[UTC+11:00] Solomon Islands, New Caledonia',
-		'Pacific/Norfolk' => '[UTC+11:30] Norfolk Island',
-		'Pacific/Auckland' => '[UTC+12:00] Auckland, Wellington',
-		'Asia/Magadan' => '[UTC+12:00] Magadan, Kamchatka, Anadyr',
-		'Pacific/Fiji' => '[UTC+12:00] Fiji',
-		'Pacific/Majuro' => '[UTC+12:00] Marshall Islands',
-		'Pacific/Chatham' => '[UTC+12:45] Chatham Islands',
-		'Pacific/Tongatapu' => '[UTC+13:00] Nuku\'alofa',
-		'Pacific/Kiritimati' => '[UTC+14:00] Kiritimati',
+	global $modSettings;
+	static $timezones = null, $lastwhen = null;
+
+	// No point doing this over if we already did it once
+	if (!empty($timezones) && $when == $lastwhen)
+		return $timezones;
+	else
+		$lastwhen = $when;
+
+	// Parseable datetime string?
+	if (is_int($timestamp = strtotime($when)))
+		$when = $timestamp;
+
+	// A Unix timestamp?
+	elseif (is_numeric($when))
+		$when = intval($when);
+
+	// Invalid value? Just get current Unix timestamp.
+	else
+		$when = time();
+
+	// We'll need these too
+	$date_when = date_create('@' . $when);
+	$later = (int) date_format(date_add($date_when, date_interval_create_from_date_string('1 year')), 'U');
+
+	// Prefer and give custom descriptions for these time zones
+	// If the description is left empty, it will be filled in with the names of matching cities
+	$timezone_descriptions = array(
+		'America/Adak' => 'Aleutian Islands',
+		'Pacific/Marquesas' => 'Marquesas Islands',
+		'Pacific/Gambier' => 'Gambier Islands',
+		'America/Anchorage' => 'Alaska',
+		'Pacific/Pitcairn' => 'Pitcairn Islands',
+		'America/Los_Angeles' => 'Pacific Time (USA, Canada)',
+		'America/Denver' => 'Mountain Time (USA, Canada)',
+		'America/Phoenix' => 'Mountain Time (no DST)',
+		'America/Chicago' => 'Central Time (USA, Canada)',
+		'America/Belize' => 'Central Time (no DST)',
+		'America/New_York' => 'Eastern Time (USA, Canada)',
+		'America/Atikokan' => 'Eastern Time (no DST)',
+		'America/Halifax' => 'Atlantic Time (Canada)',
+		'America/Anguilla' => 'Atlantic Time (no DST)',
+		'America/St_Johns' => 'Newfoundland',
+		'America/Chihuahua' => 'Chihuahua, Mazatlan',
+		'Pacific/Easter' => 'Easter Island',
+		'Atlantic/Stanley' => 'Falkland Islands',
+		'America/Miquelon' => 'Saint Pierre and Miquelon',
+		'America/Argentina/Buenos_Aires' => 'Buenos Aires',
+		'America/Sao_Paulo' => 'Brasilia Time',
+		'America/Araguaina' => 'Brasilia Time (no DST)',
+		'America/Godthab' => 'Greenland',
+		'America/Noronha' => 'Fernando de Noronha',
+		'Atlantic/Reykjavik' => 'Greenwich Mean Time (no DST)',
+		'Europe/London' => '',
+		'Europe/Berlin' => 'Central European Time',
+		'Europe/Helsinki' => 'Eastern European Time',
+		'Africa/Brazzaville' => 'Brazzaville, Lagos, Porto-Novo',
+		'Asia/Jerusalem' => 'Jerusalem',
+		'Europe/Moscow' => '',
+		'Africa/Khartoum' => 'Eastern Africa Time',
+		'Asia/Riyadh' => 'Arabia Time',
+		'Asia/Kolkata' => 'India, Sri Lanka',
+		'Asia/Yekaterinburg' => 'Yekaterinburg, Tyumen',
+		'Asia/Dhaka' => 'Astana, Dhaka',
+		'Asia/Rangoon' => 'Yangon/Rangoon',
+		'Indian/Christmas' => 'Christmas Island',
+		'Antarctica/DumontDUrville' => 'Dumont D\'Urville Station',
+		'Antarctica/Vostok' => 'Vostok Station',
+		'Australia/Lord_Howe' => 'Lord Howe Island',
+		'Pacific/Guadalcanal' => 'Solomon Islands',
+		'Pacific/Norfolk' => 'Norfolk Island',
+		'Pacific/Noumea' => 'New Caledonia',
+		'Pacific/Auckland' => 'Auckland, McMurdo Station',
+		'Pacific/Kwajalein' => 'Marshall Islands',
+		'Pacific/Chatham' => 'Chatham Islands',
 	);
+
+	// Should we put time zones from certain countries at the top of the list?
+	$priority_countries = !empty($modSettings['timezone_priority_countries']) ? explode(',', $modSettings['timezone_priority_countries']) : array();
+	$priority_tzids = array();
+	foreach ($priority_countries as $country)
+	{
+		$country_tzids = @timezone_identifiers_list(DateTimeZone::PER_COUNTRY, strtoupper(trim($country)));
+		if (!empty($country_tzids))
+			$priority_tzids = array_merge($priority_tzids, $country_tzids);
+	}
+
+	// Process the preferred timezones first, then the rest.
+	$tzids = array_keys($timezone_descriptions) + array_diff(timezone_identifiers_list(), array_keys($timezone_descriptions));
+
+	// Idea here is to get exactly one representative identifier for each and every unique set of time zone rules.
+	foreach ($tzids as $tzid)
+	{
+		// We don't want UTC right now
+		if ($tzid == 'UTC')
+			continue;
+
+		$tz = timezone_open($tzid);
+
+		// First, get the set of transition rules for this tzid
+		$tzinfo = timezone_transitions_get($tz, $when, $later);
+
+		$tzinfo[0]['abbr'] = fix_tz_abbrev($tzid, $tzinfo[0]['abbr']);
+
+		$tzkey = serialize($tzinfo);
+
+		// Next, get the geographic info for this tzid
+		$tzgeo = timezone_location_get($tz);
+
+		// Don't overwrite our preferred tzids
+		if (empty($zones[$tzkey]['tzid']))
+			$zones[$tzkey]['tzid'] = $tzid;
+
+		// A time zone from a prioritized country?
+		if (in_array($tzid, $priority_tzids))
+			$priority_zones[$tzkey] = true;
+
+		// Keep track of the location and offset for this tzid
+		$tzid_parts = explode('/', $tzid);
+		$zones[$tzkey]['locations'][] = str_replace(array('St_', '_'), array('St. ', ' '), array_pop($tzid_parts));
+		$offsets[$tzkey] = $tzinfo[0]['offset'];
+		$longitudes[$tzkey] = empty($longitudes[$tzkey]) ? $tzgeo['longitude'] : $longitudes[$tzkey];
+	}
+
+	// Sort by offset then longitude
+	array_multisort($offsets, SORT_ASC, SORT_NUMERIC, $longitudes, SORT_ASC, SORT_NUMERIC, $zones);
+
+	// Build the final array of formatted values
+	$priority_timezones = array();
+	$timezones = array();
+	foreach ($zones as $tzkey => $tzvalue)
+	{
+		$tzinfo = unserialize($tzkey);
+
+		date_timezone_set($date_when, timezone_open($tzvalue['tzid']));
+
+		if (!empty($timezone_descriptions[$tzvalue['tzid']]))
+			$desc = $timezone_descriptions[$tzvalue['tzid']];
+		else
+			$desc = implode(', ', array_unique($tzvalue['locations']));
+
+		if (isset($priority_zones[$tzkey]))
+			$priority_timezones[$tzvalue['tzid']] = $tzinfo[0]['abbr'] . ' - ' . $desc . ' [UTC' . date_format($date_when, 'P') . ']';
+		else
+			$timezones[$tzvalue['tzid']] = $tzinfo[0]['abbr'] . ' - ' . $desc . ' [UTC' . date_format($date_when, 'P') . ']';
+	}
+
+	$timezones = array_merge(
+		$priority_timezones,
+		array('' => '(Forum Default)', 'UTC' => 'UTC - Coordinated Universal Time'),
+		$timezones
+	);
+
+	return $timezones;
+}
+
+/**
+ * Reformats certain time zone abbreviations to look better.
+ *
+ * Some of PHP's time zone abbreviations are just numerical offsets from UTC, e.g. '+04'
+ * These look weird and are kind of useless, so we make them look better.
+ *
+ * @param string $tzid The Olsen time zome identifier for a time zone.
+ * @param string $tz_abbrev The abbreviation PHP provided for this time zone.
+ * @return string The fixed version of $tz_abbrev.
+ */
+function fix_tz_abbrev($tzid, $tz_abbrev)
+{
+	// Is this abbreviation just a numerical offset?
+	if (strspn($tz_abbrev, '+-') > 0)
+	{
+		// To get on this list, a time zone must be historically stable and must not observe daylight saving time
+		$missing_tz_abbrs = array(
+			'Antarctica/Casey' => 'CAST',
+			'Antarctica/Davis' => 'DAVT',
+			'Antarctica/DumontDUrville' => 'DDUT',
+			'Antarctica/Mawson' => 'MAWT',
+			'Antarctica/Rothera' => 'ART',
+			'Antarctica/Syowa' => 'SYOT',
+			'Antarctica/Vostok' => 'VOST',
+			'Asia/Almaty' => 'ALMT',
+			'Asia/Aqtau' => 'ORAT',
+			'Asia/Aqtobe' => 'AQTT',
+			'Asia/Ashgabat' => 'TMT',
+			'Asia/Bishkek' => 'KGT',
+			'Asia/Colombo' => 'IST',
+			'Asia/Dushanbe' => 'TJT',
+			'Asia/Oral' => 'ORAT',
+			'Asia/Qyzylorda' => 'QYZT',
+			'Asia/Samarkand' => 'UZT',
+			'Asia/Tashkent' => 'UZT',
+			'Asia/Tbilisi' => 'GET',
+			'Asia/Yerevan' => 'AMT',
+			'Europe/Istanbul' => 'TRT',
+			'Europe/Minsk' => 'MSK',
+			'Indian/Kerguelen' => 'TFT',
+		);
+
+		if (!empty($missing_tz_abbrs[$tzid]))
+			$tz_abbrev = $missing_tz_abbrs[$tzid];
+		else
+		{
+			// Russia likes to experiment with time zones often, and names them as offsets from Moscow
+			$tz_location = timezone_location_get(timezone_open($tzid));
+			if ($tz_location['country_code'] == 'RU')
+			{
+				$msk_offset = intval($tz_abbrev) - 3;
+				$tz_abbrev = 'MSK' . (!empty($msk_offset) ? sprintf('%+0d', $msk_offset) : '');
+			}
+		}
+
+		// Still no good? We'll just mark it as a UTC offset
+		if (strspn($tz_abbrev, '+-') > 0)
+		{
+			$tz_abbrev = intval($tz_abbrev);
+			$tz_abbrev = 'UTC' . (!empty($tz_abbrev) ? sprintf('%+0d', $tz_abbrev) : '');
+		}
+	}
+
+	return $tz_abbrev;
 }
 
 /**
@@ -5424,9 +5467,6 @@ function smf_json_decode($json, $returnAsArray = false, $logIt = true)
 	if (empty($json) || !is_string($json))
 		return array();
 
-	$returnArray = array();
-	$jsonError = false;
-
 	$returnArray = @json_decode($json, $returnAsArray);
 
 	// PHP 5.3 so no json_last_error_msg()
@@ -5538,7 +5578,7 @@ function smf_serverResponse($data = '', $type = 'Content-Type: application/json'
  */
 function set_tld_regex($update = false)
 {
-	global $sourcedir, $smcFunc;
+	global $sourcedir, $smcFunc, $modSettings;
 	static $done = false;
 
 	// If we don't need to do anything, don't
@@ -5549,7 +5589,7 @@ function set_tld_regex($update = false)
 	if ($update)
 	{
 		require_once($sourcedir . '/Subs-Package.php');
-		$tlds = fetch_web_data('http://data.iana.org/TLD/tlds-alpha-by-domain.txt');
+		$tlds = fetch_web_data('https://data.iana.org/TLD/tlds-alpha-by-domain.txt');
 	}
 	// If we aren't updating and the regex is valid, we're done
 	elseif (!empty($modSettings['tld_regex']) && @preg_match('~' . $modSettings['tld_regex'] . '~', null) !== false)
@@ -5820,7 +5860,10 @@ function build_regex($strings, $delim = null)
 				$sub_regex = $index_to_regex($value, $delim);
 
 				if (count(array_keys($value)) == 1)
-					$new_key .= explode('(?'.'>', $sub_regex)[0];
+				{
+					$new_key_array = explode('(?'.'>', $sub_regex);
+					$new_key .= $new_key_array[0];
+				}
 				else
 					$sub_regex = '(?'.'>' . $sub_regex . ')';
 			}

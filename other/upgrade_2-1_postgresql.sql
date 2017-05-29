@@ -163,6 +163,11 @@ INSERT INTO {$db_prefix}settings (variable, value) VALUES ('defaultMaxListItems'
 --- Updating legacy attachments...
 /******************************************************************************/
 
+---# Adding more space to the mime_type column.
+ALTER TABLE {$db_prefix}attachments
+CHANGE `mime_type` `mime_type` VARCHAR(128) NOT NULL DEFAULT '';
+---#
+
 ---# Converting legacy attachments.
 ---{
 
@@ -448,13 +453,13 @@ ADD COLUMN credits varchar(255) NOT NULL DEFAULT '';
 ---{
 upgrade_query("
 	ALTER TABLE {$db_prefix}log_online
-	ALTER COLUMN session type varchar(64);
+	ALTER COLUMN session type varchar(128);
 
 	ALTER TABLE {$db_prefix}log_errors
-	ALTER COLUMN session type varchar(64);
+	ALTER COLUMN session type varchar(128);
 
 	ALTER TABLE {$db_prefix}sessions
-	ALTER COLUMN session_id type varchar(64);");
+	ALTER COLUMN session_id type varchar(128);");
 
 upgrade_query("
 	ALTER TABLE {$db_prefix}log_online
@@ -537,6 +542,31 @@ VALUES
 			array('variable')
 		);
 	}
+---}
+---#
+
+---# Remove old mod tasks...
+---{
+	$vanilla_tasks = array(
+		'approval_notification',
+		'birthdayemails',
+		'daily_digest',
+		'daily_maintenance',
+		'fetchSMfiles',
+		'paid_subscriptions',
+		'remove_temp_attachments',
+		'remove_topic_redirect',
+		'remove_old_drafts',
+		'weekly_digest',
+		'weekly_maintenance');
+
+	$smcFunc['db_query']('',
+		'DELETE FROM {db_prefix}scheduled_tasks
+			WHERE task NOT IN ({array_string:keep_tasks});',
+		array(
+			'keep_tasks' => $vanilla_tasks
+		)
+	);
 ---}
 ---#
 
@@ -712,31 +742,62 @@ INSERT INTO {$db_prefix}user_alerts_prefs (id_member, alert_pref, alert_value) V
 
 ---# Upgrading post notification settings
 ---{
-	// Skip errors here so we don't croak if the columns don't exist...
-	$existing_notify = $smcFunc['db_query']('', '
-		SELECT id_member, notify_regularity, notify_send_body, notify_types
-		FROM {db_prefix}members',
-		array(
-			'db_error_skip' => true,
-		)
-	);
-	if (!empty($existing_notify))
+// First see if we still have a notify_regularity column
+$results = $smcFunc['db_list_columns']('{db_prefix}members');
+if (in_array('notify_regularity', $results))
+{
+	$_GET['a'] = isset($_GET['a']) ? (int) $_GET['a'] : 0;
+	$step_progress['name'] = 'Upgrading post notification settings';
+	$step_progress['current'] = $_GET['a'];
+
+	$limit = 100000;
+	$is_done = false;
+
+	$request = $smcFunc['db_query']('', 'SELECT COUNT(*) FROM {db_prefix}members');
+	list($maxMembers) = $smcFunc['db_fetch_row']($request);
+
+	while (!$is_done)
 	{
-		while ($row = $smcFunc['db_fetch_assoc']($existing_notify))
+		nextSubStep($substep);
+		$inserts = array();
+
+		// Skip errors here so we don't croak if the columns don't exist...
+		$request = $smcFunc['db_query']('', '
+			SELECT id_member, notify_regularity, notify_send_body, notify_types
+			FROM {db_prefix}members
+			LIMIT {int:start}, {int:limit}',
+			array(
+				'db_error_skip' => true,
+				'start' => $_GET['a'],
+				'limit' => $limit,
+			)
+		);
+		if ($smcFunc['db_num_rows']($request) != 0)
 		{
-			$smcFunc['db_insert']('ignore',
-				'{db_prefix}user_alerts_prefs',
-				array('id_member' => 'int', 'alert_pref' => 'string', 'alert_value' => 'string'),
-				array(
-					array($row['id_member'], 'msg_receive_body', !empty($row['notify_send_body']) ? 1 : 0),
-					array($row['id_member'], 'msg_notify_pref', $row['notify_regularity']),
-					array($row['id_member'], 'msg_notify_type', $row['notify_types']),
-				),
-				array('id_member', 'alert_pref')
-			);
+			while ($row = $smcFunc['db_fetch_assoc']($existing_notify))
+			{
+				$inserts[] = array($row['id_member'], 'msg_receive_body', !empty($row['notify_send_body']) ? 1 : 0);
+				$inserts[] = array($row['id_member'], 'msg_notify_pref', $row['notify_regularity']);
+				$inserts[] = array($row['id_member'], 'msg_notify_type', $row['notify_types']);
+			}
+			$smcFunc['db_free_result']($existing_notify);
 		}
-		$smcFunc['db_free_result']($existing_notify);
+
+		$smcFunc['db_insert']('ignore',
+			'{db_prefix}user_alerts_prefs',
+			array('id_member' => 'int', 'alert_pref' => 'string', 'alert_value' => 'string'),
+			$inserts,
+			array('id_member', 'alert_pref')
+		);
+
+		$_GET['a'] += $limit;
+		$step_progress['current'] = $_GET['a'];
+
+		if ($step_progress['current'] >= $maxMembers)
+			$is_done = true;
 	}
+	unset($_GET['a']);
+}
 ---}
 ---#
 
@@ -751,10 +812,12 @@ ALTER TABLE {$db_prefix}members
 /******************************************************************************/
 --- Adding support for topic unwatch
 /******************************************************************************/
----# Adding new columns to log_topics...
+---# Adding new column to log_topics...
 ALTER TABLE {$db_prefix}log_topics
 ADD COLUMN unwatched int NOT NULL DEFAULT '0';
+---#
 
+---# Initializing new column in log_topics...
 UPDATE {$db_prefix}log_topics
 SET unwatched = 0;
 ---#
@@ -763,7 +826,7 @@ SET unwatched = 0;
 ---{
 upgrade_query("
 	ALTER TABLE {$db_prefix}log_topics
-	RENAME disregarded TO unwatched");
+	DROP COLUMN disregarded");
 ---}
 ---#
 
@@ -889,44 +952,47 @@ foreach ($toMove as $move)
 /******************************************************************************/
 --- Cleaning up after old themes...
 /******************************************************************************/
----# Checking for "core" and removing it if necessary...
+---# Clean up settings for unused themes
 ---{
-// Do they have "core" installed?
-if (file_exists($GLOBALS['boarddir'] . '/Themes/core'))
-{
-	$core_dir = $GLOBALS['boarddir'] . '/Themes/core';
-	$theme_request = upgrade_query("
-		SELECT id_theme
-		FROM {$db_prefix}themes
-		WHERE variable = 'theme_dir'
-			AND value ='$core_dir'");
-
-	// Don't do anything if this theme is already uninstalled
-	if ($smcFunc['db_num_rows']($theme_request) == 1)
-	{
-		list($id_theme) = $smcFunc['db_fetch_row']($theme_request, 0);
-		$smcFunc['db_free_result']($theme_request);
-
-		$known_themes = explode(', ', $modSettings['knownThemes']);
-
-		// Remove this value...
-		$known_themes = array_diff($known_themes, array($id_theme));
-
-		// Change back to a string...
-		$known_themes = implode(', ', $known_themes);
-
-		// Update the database
-		upgrade_query("
-			UPDATE {$db_prefix}settings
-			SET value = '$known_themes'
-			WHERE variable = 'knownThemes'");
-
-		// Delete any info about this theme
-		upgrade_query("
-			DELETE FROM {$db_prefix}themes
-			WHERE id_theme = $id_theme");
+// Fetch list of theme directories
+$request = $smcFunc['db_query']('', '
+	SELECT id_theme, variable, value
+	  FROM {db_prefix}themes
+	WHERE variable = {string:theme_dir}
+	  AND id_theme != {int:default_theme};',
+	array(
+		'default_theme' => 1,
+		'theme_dir' => 'theme_dir',
+	)
+);
+// Check which themes exist in the filesystem & save off their IDs 
+// Dont delete default theme(start with 1 in the array), & make sure to delete old core theme
+$known_themes = array('1');
+$core_dir = $GLOBALS['boarddir'] . '/Themes/core';
+while ($row = $smcFunc['db_fetch_assoc']($request))	{
+	if ($row['value'] != $core_dir && is_dir($row['value'])) {
+		$known_themes[] = $row['id_theme'];
 	}
 }
+// Cleanup unused theme settings
+$smcFunc['db_query']('', '
+	DELETE FROM {db_prefix}themes
+	WHERE id_theme NOT IN ({array_int:known_themes});',
+	array(
+		'known_themes' => $known_themes,
+	)
+);
+// Set knownThemes
+$known_themes = implode(',', $known_themes);
+$smcFunc['db_query']('', '
+	UPDATE {db_prefix}settings
+	SET value = {string:known_themes}
+	WHERE variable = {string:known_theme_str};',
+	array(
+		'known_theme_str' => 'knownThemes',
+		'known_themes' => $known_themes,
+	)
+);
 ---}
 ---#
 
@@ -1007,22 +1073,22 @@ if (!empty($select_columns))
 	while ($row = $smcFunc['db_fetch_assoc']($request))
 	{
 		if (!empty($row['aim']))
-			$inserts[] = array($row['id_member'], -1, 'cust_aolins', $row['aim']);
+			$inserts[] = array($row['id_member'], 1, 'cust_aolins', $row['aim']);
 
 		if (!empty($row['icq']))
-			$inserts[] = array($row['id_member'], -1, 'cust_icq', $row['icq']);
+			$inserts[] = array($row['id_member'], 1, 'cust_icq', $row['icq']);
 
 		if (!empty($row['msn']))
-			$inserts[] = array($row['id_member'], -1, 'cust_skyp', $row['msn']);
+			$inserts[] = array($row['id_member'], 1, 'cust_skype', $row['msn']);
 
 		if (!empty($row['yim']))
-			$inserts[] = array($row['id_member'], -1, 'cust_yim', $row['yim']);
+			$inserts[] = array($row['id_member'], 1, 'cust_yahoo', $row['yim']);
 
 		if (!empty($row['location']))
-			$inserts[] = array($row['id_member'], -1, 'cust_loca', $row['location']);
+			$inserts[] = array($row['id_member'], 1, 'cust_loca', $row['location']);
 
 		if (!empty($row['gender']) && isset($genderTypes[intval($row['gender'])]))
-			$inserts[] = array($row['id_member'], -1, 'cust_gender', $genderTypes[intval($row['gender'])]);
+			$inserts[] = array($row['id_member'], 1, 'cust_gender', $genderTypes[intval($row['gender'])]);
 	}
 	$smcFunc['db_free_result']($request);
 
@@ -1889,7 +1955,7 @@ ALTER TABLE {$db_prefix}members
 ADD COLUMN tfa_backup VARCHAR(64) NOT NULL DEFAULT '';
 ---#
 
----# Force 2FA per membergroup?
+---# Force 2FA per membergroup
 ALTER TABLE {$db_prefix}membergroups
 ADD COLUMN tfa_required smallint NOT NULL default '0';
 ---#
@@ -2180,6 +2246,45 @@ UPDATE {$db_prefix}permissions SET permission = 'profile_website_any' WHERE perm
 ---#
 
 /******************************************************************************/
+--- Adding support for start and end times on calendar events
+/******************************************************************************/
+---# Add start_time end_time, and timezone columns to calendar table
+ALTER TABLE {$db_prefix}calendar
+ADD COLUMN start_time time,
+ADD COLUMN end_time time,
+ADD COLUMN timezone VARCHAR(80);
+---#
+
+---# Update cal_maxspan and drop obsolete cal_allowspan setting
+---{
+	if (!isset($modSettings['cal_allowspan']))
+		$cal_maxspan = 0;
+	elseif ($modSettings['cal_allowspan'] == false)
+		$cal_maxspan = 1;
+	else
+		$cal_maxspan = ($modSettings['cal_maxspan'] > 1) ? $modSettings['cal_maxspan'] : 0;
+
+	upgrade_query("
+		UPDATE {$db_prefix}settings
+		SET value = '$cal_maxspan'
+		WHERE variable = 'cal_maxspan'");
+
+	if (isset($modSettings['cal_allowspan']))
+		upgrade_query("
+			DELETE FROM {$db_prefix}settings
+			WHERE variable = 'cal_allowspan'");
+---}
+---#
+
+/******************************************************************************/
+--- Adding location support for calendar events
+/******************************************************************************/
+---# Add location column to calendar table
+ALTER TABLE {$db_prefix}calendar
+ADD COLUMN location VARCHAR(255) NOT NULL DEFAULT '';
+---#
+
+/******************************************************************************/
 --- Update index for like search
 /******************************************************************************/
 ---# Change index for table log_packages
@@ -2208,12 +2313,45 @@ DROP INDEX IF EXISTS {$db_prefix}admin_info_files_filename;
 CREATE INDEX {$db_prefix}admin_info_files_filename ON {$db_prefix}admin_info_files (filename varchar_pattern_ops);
 ---#
 
----# Change index for table boards 
+---# Change index for table boards
 DROP INDEX IF EXISTS {$db_prefix}boards_member_groups;
 CREATE INDEX {$db_prefix}boards_member_groups ON {$db_prefix}boards (member_groups varchar_pattern_ops);
 ---#
 
----# Change index for table log_comments 
+---# Change index for table log_comments
 DROP INDEX IF EXISTS {$db_prefix}log_comments_comment_type;
 CREATE INDEX {$db_prefix}log_comments_comment_type ON {$db_prefix}log_comments (comment_type varchar_pattern_ops);
+---#
+
+/******************************************************************************/
+--- drop col pm_email_notify from members
+/******************************************************************************/
+---# drop column pm_email_notify on table members
+ALTER TABLE {$db_prefix}members DROP COLUMN IF EXISTS pm_email_notify;
+---#
+
+/******************************************************************************/
+--- Cleaning up after old UTF-8 languages
+/******************************************************************************/
+---# Update the members' languages
+UPDATE {$db_prefix}members
+SET lngfile = REPLACE(lngfile, '-utf8', '');
+---#
+
+/******************************************************************************/
+--- Create index for birthday calendar query
+/******************************************************************************/
+---# Create help function for index
+---{
+upgrade_query("
+	CREATE OR REPLACE FUNCTION indexable_month_day(date) RETURNS TEXT as '
+    SELECT to_char($1, ''MM-DD'');'
+	LANGUAGE 'sql' IMMUTABLE STRICT;"
+);
+---}
+---#
+
+---# Create index members_birthdate2
+DROP INDEX IF EXISTS {$db_prefix}members_birthdate2;
+CREATE INDEX {$db_prefix}members_birthdate2 ON {$db_prefix}members (indexable_month_day(birthdate));
 ---#

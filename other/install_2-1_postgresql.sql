@@ -4,7 +4,7 @@
 #
 # Create PostgreSQL functions.
 # Some taken from http://www.xach.com/aolserver/mysql-functions.sql and http://pgfoundry.org/projects/mysqlcompat/.
-# IP Regex in inet_aton from http://www.mkyong.com/database/regular-expression-in-postgresql/.
+# IP Regex in inet_aton from https://www.mkyong.com/database/regular-expression-in-postgresql/.
 
 CREATE OR REPLACE FUNCTION FROM_UNIXTIME(integer) RETURNS timestamp AS
   'SELECT timestamp ''epoch'' + $1 * interval ''1 second'' AS result'
@@ -72,11 +72,6 @@ CREATE OR REPLACE FUNCTION TO_DAYS (timestamp) RETURNS integer AS
   'SELECT DATE_PART(''DAY'', $1 - ''0001-01-01bc'')::integer AS result'
 LANGUAGE 'sql';
 
-# Should be droped when pg min >= 9.1
-CREATE OR REPLACE FUNCTION CONCAT (text, text) RETURNS text AS
-  'SELECT $1 || $2 AS result'
-LANGUAGE 'sql';
-
 CREATE OR REPLACE FUNCTION INSTR (text, text) RETURNS integer AS
   'SELECT POSITION($2 in $1) AS result'
 LANGUAGE 'sql';
@@ -84,6 +79,10 @@ LANGUAGE 'sql';
 CREATE OR REPLACE FUNCTION bool_not_eq_int (boolean, integer) RETURNS boolean AS
   'SELECT CAST($1 AS integer) != $2 AS result'
 LANGUAGE 'sql';
+
+CREATE OR REPLACE FUNCTION indexable_month_day(date) RETURNS TEXT as '
+    SELECT to_char($1, ''MM-DD'');'
+LANGUAGE 'sql' IMMUTABLE STRICT;
 
 #
 # Create PostgreSQL operators.
@@ -152,7 +151,7 @@ CREATE TABLE {$db_prefix}attachments (
   downloads int NOT NULL default '0',
   width int NOT NULL default '0',
   height int NOT NULL default '0',
-  mime_type varchar(20) NOT NULL default '',
+  mime_type varchar(128) NOT NULL default '',
   approved smallint NOT NULL default '1',
   PRIMARY KEY (id_attach)
 );
@@ -310,6 +309,10 @@ CREATE TABLE {$db_prefix}calendar (
   id_topic int NOT NULL default '0',
   title varchar(255) NOT NULL default '',
   id_member int NOT NULL default '0',
+  start_time time,
+  end_time time,
+  timezone varchar(80),
+  location VARCHAR(255) NOT NULL DEFAULT '',
   PRIMARY KEY (id_event)
 );
 
@@ -559,7 +562,7 @@ CREATE TABLE {$db_prefix}log_errors (
   ip inet,
   url text NOT NULL,
   message text NOT NULL,
-  session varchar(64) NOT NULL default '                                                                ',
+  session varchar(128) NOT NULL default '                                                                ',
   error_type varchar(15) NOT NULL default 'general',
   file varchar(255) NOT NULL DEFAULT '',
   line int NOT NULL default '0',
@@ -666,7 +669,7 @@ CREATE INDEX {$db_prefix}log_notify_id_topic ON {$db_prefix}log_notify (id_topic
 #
 
 CREATE UNLOGGED TABLE {$db_prefix}log_online (
-  session varchar(64) NOT NULL default '',
+  session varchar(128) NOT NULL default '',
   log_time bigint NOT NULL default '0',
   id_member int NOT NULL default '0',
   id_spider smallint NOT NULL default '0',
@@ -1054,7 +1057,6 @@ CREATE TABLE {$db_prefix}members (
   birthdate date NOT NULL default '0001-01-01',
   website_title varchar(255) NOT NULL DEFAULT '',
   website_url varchar(255) NOT NULL DEFAULT '',
-  hide_email smallint NOT NULL default '0',
   show_online smallint NOT NULL default '1',
   time_format varchar(80) NOT NULL default '',
   signature text NOT NULL,
@@ -1094,6 +1096,7 @@ CREATE INDEX {$db_prefix}members_email_address ON {$db_prefix}members (email_add
 CREATE INDEX {$db_prefix}members_date_registered ON {$db_prefix}members (date_registered);
 CREATE INDEX {$db_prefix}members_id_group ON {$db_prefix}members (id_group);
 CREATE INDEX {$db_prefix}members_birthdate ON {$db_prefix}members (birthdate);
+CREATE INDEX {$db_prefix}members_birthdate2 ON {$db_prefix}members (indexable_month_day(birthdate));
 CREATE INDEX {$db_prefix}members_posts ON {$db_prefix}members (posts);
 CREATE INDEX {$db_prefix}members_last_login ON {$db_prefix}members (last_login);
 CREATE INDEX {$db_prefix}members_lngfile ON {$db_prefix}members (lngfile varchar_pattern_ops);
@@ -1479,7 +1482,7 @@ CREATE TABLE {$db_prefix}settings (
 #
 
 CREATE UNLOGGED TABLE {$db_prefix}sessions (
-  session_id varchar(64) NOT NULL,
+  session_id varchar(128) NOT NULL,
   last_update bigint NOT NULL,
   data text NOT NULL,
   PRIMARY KEY (session_id)
@@ -2276,7 +2279,7 @@ VALUES (1, 1, 1, 1, {$current_time}, '{$default_topic_subject}', 'Simple Machine
 
 INSERT INTO {$db_prefix}package_servers
 	(name, url)
-VALUES ('Simple Machines Third-party Mod Site', 'http://custom.simplemachines.org/packages/mods');
+VALUES ('Simple Machines Third-party Mod Site', 'https://custom.simplemachines.org/packages/mods');
 # --------------------------------------------------------
 
 #
@@ -2420,7 +2423,7 @@ VALUES ('smfVersion', '{$smf_version}'),
 	('cal_showholidays', '1'),
 	('cal_showbdays', '1'),
 	('cal_showevents', '1'),
-	('cal_maxspan', '7'),
+	('cal_maxspan', '0'),
 	('cal_highlight_events', '3'),
 	('cal_highlight_holidays', '3'),
 	('cal_highlight_birthdays', '3'),
@@ -2572,6 +2575,7 @@ VALUES ('smfVersion', '{$smf_version}'),
 	('tfa_mode', '1'),
 	('allow_expire_redirect', '1'),
 	('json_done', '1'),
+	('displayFields', '[{"col_name":"cust_aolins","title":"AOL Instant Messenger","type":"text","order":"1","bbc":"0","placement":"1","enclose":"<a class=\\"aim\\" href=\\"aim:goim?screenname={INPUT}&message=Hello!+Are+you+there?\\" target=\\"_blank\\" title=\\"AIM - {INPUT}\\"><img src=\\"{IMAGES_URL}\\/aim.png\\" alt=\\"AIM - {INPUT}\\"><\\/a>","mlist":"0"},{"col_name":"cust_icq","title":"ICQ","type":"text","order":"2","bbc":"0","placement":"1","enclose":"<a class=\\"icq\\" href=\\"\\/\\/www.icq.com\\/people\\/{INPUT}\\" target=\\"_blank\\" title=\\"ICQ - {INPUT}\\"><img src=\\"{DEFAULT_IMAGES_URL}\\/icq.png\\" alt=\\"ICQ - {INPUT}\\"><\\/a>","mlist":"0"},{"col_name":"cust_skype","title":"Skype","type":"text","order":"3","bbc":"0","placement":"1","enclose":"<a href=\\"skype:{INPUT}?call\\"><img src=\\"{DEFAULT_IMAGES_URL}\\/skype.png\\" alt=\\"{INPUT}\\" title=\\"{INPUT}\\" \\/><\\/a> ","mlist":"0"},{"col_name":"cust_yahoo","title":"Yahoo! Messenger","type":"text","order":"4","bbc":"0","placement":"1","enclose":"<a class=\\"yim\\" href=\\"\\/\\/edit.yahoo.com\\/config\\/send_webmesg?.target={INPUT}\\" target=\\"_blank\\" title=\\"Yahoo! Messenger - {INPUT}\\"><img src=\\"{IMAGES_URL}\\/yahoo.png\\" alt=\\"Yahoo! Messenger - {INPUT}\\"><\\/a>","mlist":"0"},{"col_name":"cust_loca","title":"Location","type":"text","order":"5","bbc":"0","placement":"0","enclose":"","mlist":"0"},{"col_name":"cust_gender","title":"Gender","type":"radio","order":"6","bbc":"0","placement":"1","enclose":"<span class=\\" generic_icons gender_{INPUT}\\" title=\\"{INPUT}\\"><\\/span>","mlist":"0"}]'),
 	('minimize_files', '1');
 # --------------------------------------------------------
 

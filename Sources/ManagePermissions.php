@@ -7,7 +7,7 @@
  *
  * @package SMF
  * @author Simple Machines http://www.simplemachines.org
- * @copyright 2016 Simple Machines and individual contributors
+ * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
  * @version 2.1 Beta 3
@@ -1539,7 +1539,6 @@ function loadAllPermissions()
 	// Some permissions are hidden if features are off.
 	$hiddenPermissions = array();
 	$relabelPermissions = array(); // Permissions to apply a different label to.
-	$relabelGroups = array(); // As above but for groups.
 	if (empty($modSettings['cal_enabled']))
 	{
 		$hiddenPermissions[] = 'calendar_view';
@@ -1929,7 +1928,7 @@ function EditPermissionProfiles()
 		$_POST['profile_name'] = $smcFunc['htmlspecialchars']($_POST['profile_name']);
 
 		// Insert the profile itself.
-		$smcFunc['db_insert']('',
+		$profile_id = $smcFunc['db_insert']('',
 			'{db_prefix}permission_profiles',
 			array(
 				'profile_name' => 'string',
@@ -1937,9 +1936,9 @@ function EditPermissionProfiles()
 			array(
 				$_POST['profile_name'],
 			),
-			array('id_profile')
+			array('id_profile'),
+			1
 		);
-		$profile_id = $smcFunc['db_insert_id']('{db_prefix}permission_profiles', 'id_profile');
 
 		// Load the permissions from the one it's being copied from.
 		$request = $smcFunc['db_query']('', '

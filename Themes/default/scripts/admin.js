@@ -386,7 +386,7 @@ function addOption()
 }
 
 
-//Create a named element dynamically - thanks to: http://www.thunderguy.com/semicolon/2005/05/23/setting-the-name-attribute-in-internet-explorer/
+//Create a named element dynamically - thanks to: https://www.thunderguy.com/semicolon/2005/05/23/setting-the-name-attribute-in-internet-explorer/
 function createNamedElement(type, name, customFields)
 {
 	var element = null;
@@ -572,17 +572,6 @@ function select_in_category(cat_id, elem, brd_list)
 		document.getElementById(elem.value + '_brd' + brd_list[brd]).checked = true;
 
 	elem.selectedIndex = 0;
-}
-
-/*
-* Server Settings > Caching
-*/
-function toggleCache ()
-{
-	var memcache = document.getElementById('cache_memcached');
-	var cachedir = document.getElementById('cachedir');
-	memcache.disabled = cache_type.value != "memcached";
-	cachedir.disabled = cache_type.value != "smf";
 }
 
 /*

@@ -8,7 +8,7 @@
  *
  * @package SMF
  * @author Simple Machines http://www.simplemachines.org
- * @copyright 2016 Simple Machines and individual contributors
+ * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
  * @version 2.1 Beta 3
@@ -645,7 +645,7 @@ function modifyBoard($board_id, &$boardOptions)
 
 	// Do the updates (if any).
 	if (!empty($boardUpdates))
-		$request = $smcFunc['db_query']('', '
+		$smcFunc['db_query']('', '
 			UPDATE {db_prefix}boards
 			SET
 				' . implode(',
@@ -760,7 +760,7 @@ function modifyBoard($board_id, &$boardOptions)
 					array(
 						'visible' => 0,
 						'negative_one' => -1,
-						'invalid_groups' => array(1,3),
+						'invalid_groups' => array(1, 3),
 						'moderator_group_list' => $moderator_groups,
 						'limit' => count($moderator_groups),
 					)
@@ -838,20 +838,20 @@ function createBoard($boardOptions)
 		'member_groups' => 'string', 'redirect' => 'string',
 	);
 	$board_parameters = array(
-		$boardOptions['target_category'], $boardOptions['board_name'] , '', 0,
+		$boardOptions['target_category'], $boardOptions['board_name'], '', 0,
 		'-1,0', '',
 	);
 
 	call_integration_hook('integrate_create_board', array(&$boardOptions, &$board_columns, &$board_parameters));
 
 	// Insert a board, the settings are dealt with later.
-	$smcFunc['db_insert']('',
+	$board_id = $smcFunc['db_insert']('',
 		'{db_prefix}boards',
 		$board_columns,
 		$board_parameters,
-		array('id_board')
+		array('id_board'),
+		1
 	);
-	$board_id = $smcFunc['db_insert_id']('{db_prefix}boards', 'id_board');
 
 	if (empty($board_id))
 		return 0;
@@ -1307,18 +1307,31 @@ function getBoardTree()
 {
 	global $cat_tree, $boards, $boardList, $smcFunc;
 
+	$boardColumns = array(
+		'COALESCE(b.id_board, 0) AS id_board', 'b.id_parent', 'b.name AS board_name',
+		'b.description', 'b.child_level', 'b.board_order', 'b.count_posts', 'b.member_groups',
+		'b.id_theme', 'b.override_theme', 'b.id_profile', 'b.redirect', 'b.num_posts',
+		'b.num_topics', 'b.deny_member_groups', 'c.id_cat', 'c.name AS cat_name',
+		'c.description AS cat_desc', 'c.cat_order', 'c.can_collapse',
+	);
+
+	// Let mods add extra columns and parameters to the SELECT query
+	$extraBoardColumns = array();
+	$extraBoardParameters = array();
+	call_integration_hook('integrate_pre_boardtree', array(&$extraBoardColumns, &$extraBoardParameters));
+
+	$boardColumns = array_unique(array_merge($boardColumns, $extraBoardColumns));
+	$boardParameters = array_unique($extraBoardParameters);
+
 	// Getting all the board and category information you'd ever wanted.
 	$request = $smcFunc['db_query']('', '
 		SELECT
-			COALESCE(b.id_board, 0) AS id_board, b.id_parent, b.name AS board_name, b.description, b.child_level,
-			b.board_order, b.count_posts, b.member_groups, b.id_theme, b.override_theme, b.id_profile, b.redirect,
-			b.num_posts, b.num_topics, b.deny_member_groups, c.id_cat, c.name AS cat_name, c.description AS cat_desc, c.cat_order, c.can_collapse
+			' . implode(', ', $boardColumns) . '
 		FROM {db_prefix}categories AS c
 			LEFT JOIN {db_prefix}boards AS b ON (b.id_cat = c.id_cat)
 		WHERE {query_wanna_see_board}
 		ORDER BY c.cat_order, b.child_level, b.board_order',
-		array(
-		)
+		$boardParameters
 	);
 	$cat_tree = array();
 	$boards = array();
@@ -1405,6 +1418,9 @@ function getBoardTree()
 				$boards[$row['id_board']]['tree'] = &$boards[$row['id_parent']]['tree']['children'][$row['id_board']];
 			}
 		}
+
+		// If mods want to do anything with this board before we move on, now's the time
+		call_integration_hook('integrate_boardtree_board', array($row));
 	}
 	$smcFunc['db_free_result']($request);
 

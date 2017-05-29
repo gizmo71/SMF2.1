@@ -9,7 +9,7 @@
  *
  * @package SMF
  * @author Simple Machines http://www.simplemachines.org
- * @copyright 2016 Simple Machines and individual contributors
+ * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
  * @version 2.1 Beta 3
@@ -154,7 +154,7 @@ function fatal_error($error, $log = 'general', $status = 500)
  *  - the information is logged if log is specified.
  *
  * @param string $error The error message
- * @param string $log The type of error, or false to not log it
+ * @param string|false $log The type of error, or false to not log it
  * @param array $sprintf An array of data to be sprintf()'d into the specified message
  * @param int $status = false The HTTP status code associated with this error
  */
@@ -202,7 +202,7 @@ function fatal_lang_error($error, $log = 'general', $sprintf = array(), $status 
 /**
  * Handler for standard error messages, standard PHP error handler replacement.
  * It dies with fatal_error() if the error_level matches with error_reporting.
- * @param int $error_level A pre-defined error-handling constant (see {@link http://www.php.net/errorfunc.constants})
+ * @param int $error_level A pre-defined error-handling constant (see {@link https://php.net/errorfunc.constants})
  * @param string $error_string The error message
  * @param string $file The file where the error occurred
  * @param int $line The line where the error occurred
@@ -218,7 +218,8 @@ function smf_error_handler($error_level, $error_string, $file, $line)
 	if (strpos($file, 'eval()') !== false && !empty($settings['current_include_filename']))
 	{
 		$array = debug_backtrace();
-		for ($i = 0; $i < count($array); $i++)
+		$count = count($array);
+		for ($i = 0; $i < $count; $i++)
 		{
 			if ($array[$i]['function'] != 'loadSubTemplate')
 				continue;

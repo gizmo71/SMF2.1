@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS {$db_prefix}member_logins (
 	PRIMARY KEY id_login(id_login),
 	INDEX idx_id_member (id_member),
 	INDEX idx_time (time)
-) ENGINE=MyISAM{$db_collation};
+) ENGINE=MyISAM;
 ---#
 
 ---# Copying the current package backup setting...
@@ -182,6 +182,11 @@ INSERT INTO {$db_prefix}settings (variable, value) VALUES ('defaultMaxListItems'
 /******************************************************************************/
 --- Updating legacy attachments...
 /******************************************************************************/
+
+---# Adding more space to the mime_type column.
+ALTER TABLE {$db_prefix}attachments
+CHANGE `mime_type` `mime_type` VARCHAR(128) NOT NULL DEFAULT '';
+---#
 
 ---# Converting legacy attachments.
 ---{
@@ -466,13 +471,13 @@ ADD COLUMN credits VARCHAR(255) NOT NULL DEFAULT '';
 /******************************************************************************/
 ---# Altering the session_id columns...
 ALTER TABLE {$db_prefix}log_online
-CHANGE `session` `session` VARCHAR(64) NOT NULL DEFAULT '';
+CHANGE `session` `session` VARCHAR(128) NOT NULL DEFAULT '';
 
 ALTER TABLE {$db_prefix}log_errors
-CHANGE `session` `session` CHAR(64) NOT NULL DEFAULT '                                                                ';
+CHANGE `session` `session` VARCHAR(128) NOT NULL DEFAULT '                                                                ';
 
 ALTER TABLE {$db_prefix}sessions
-CHANGE `session_id` `session_id` CHAR(64) NOT NULL;
+CHANGE `session_id` `session_id` VARCHAR(128) NOT NULL;
 ---#
 
 /******************************************************************************/
@@ -530,6 +535,31 @@ VALUES
 			array('variable')
 		);
 	}
+---}
+---#
+
+---# Remove old mod tasks...
+---{
+	$vanilla_tasks = array(
+		'approval_notification',
+		'birthdayemails',
+		'daily_digest',
+		'daily_maintenance',
+		'fetchSMfiles',
+		'paid_subscriptions',
+		'remove_temp_attachments',
+		'remove_topic_redirect',
+		'remove_old_drafts',
+		'weekly_digest',
+		'weekly_maintenance');
+
+	$smcFunc['db_query']('',
+		'DELETE FROM {db_prefix}scheduled_tasks
+			WHERE task NOT IN ({array_string:keep_tasks});',
+		array(
+			'keep_tasks' => $vanilla_tasks
+		)
+	);
 ---}
 ---#
 
@@ -685,57 +715,62 @@ VALUES (0, 'member_group_request', 1),
 
 ---# Upgrading post notification settings
 ---{
-$_GET['a'] = isset($_GET['a']) ? (int) $_GET['a'] : 0;
-$step_progress['name'] = 'Upgrading post notification settings';
-$step_progress['current'] = $_GET['a'];
-
-$limit = 100000;
-$is_done = false;
-
-$request = $smcFunc['db_query']('', 'SELECT COUNT(*) FROM {db_prefix}members');
-list($maxMembers) = $smcFunc['db_fetch_row']($request);
-
-while (!$is_done)
+// First see if we still have a notify_regularity column
+$results = $smcFunc['db_list_columns']('{db_prefix}members');
+if (in_array('notify_regularity', $results))
 {
-	nextSubStep($substep);
-	$inserts = array();
-
-	// Skip errors here so we don't croak if the columns don't exist...
-	$request = $smcFunc['db_query']('', '
-		SELECT id_member, notify_regularity, notify_send_body, notify_types
-		FROM {db_prefix}members
-		LIMIT {int:start}, {int:limit}',
-		array(
-			'db_error_skip' => true,
-			'start' => $_GET['a'],
-			'limit' => $limit,
-		)
-	);
-	if ($smcFunc['db_num_rows']($request) != 0)
-	{
-		while ($row = $smcFunc['db_fetch_assoc']($existing_notify))
-		{
-			$inserts[] = array($row['id_member'], 'msg_receive_body', !empty($row['notify_send_body']) ? 1 : 0);
-			$inserts[] = array($row['id_member'], 'msg_notify_pref', $row['notify_regularity']);
-			$inserts[] = array($row['id_member'], 'msg_notify_type', $row['notify_types']);
-		}
-		$smcFunc['db_free_result']($existing_notify);
-	}
-
-	$smcFunc['db_insert']('ignore',
-		'{db_prefix}user_alerts_prefs',
-		array('id_member' => 'int', 'alert_pref' => 'string', 'alert_value' => 'string'),
-		$inserts,
-		array('id_member', 'alert_pref')
-	);
-
-	$_GET['a'] += $limit;
+	$_GET['a'] = isset($_GET['a']) ? (int) $_GET['a'] : 0;
+	$step_progress['name'] = 'Upgrading post notification settings';
 	$step_progress['current'] = $_GET['a'];
 
-	if ($step_progress['current'] >= $maxMembers)
-		$is_done = true;
+	$limit = 100000;
+	$is_done = false;
+
+	$request = $smcFunc['db_query']('', 'SELECT COUNT(*) FROM {db_prefix}members');
+	list($maxMembers) = $smcFunc['db_fetch_row']($request);
+
+	while (!$is_done)
+	{
+		nextSubStep($substep);
+		$inserts = array();
+
+		// Skip errors here so we don't croak if the columns don't exist...
+		$request = $smcFunc['db_query']('', '
+			SELECT id_member, notify_regularity, notify_send_body, notify_types
+			FROM {db_prefix}members
+			LIMIT {int:start}, {int:limit}',
+			array(
+				'db_error_skip' => true,
+				'start' => $_GET['a'],
+				'limit' => $limit,
+			)
+		);
+		if ($smcFunc['db_num_rows']($request) != 0)
+		{
+			while ($row = $smcFunc['db_fetch_assoc']($existing_notify))
+			{
+				$inserts[] = array($row['id_member'], 'msg_receive_body', !empty($row['notify_send_body']) ? 1 : 0);
+				$inserts[] = array($row['id_member'], 'msg_notify_pref', $row['notify_regularity']);
+				$inserts[] = array($row['id_member'], 'msg_notify_type', $row['notify_types']);
+			}
+			$smcFunc['db_free_result']($existing_notify);
+		}
+
+		$smcFunc['db_insert']('ignore',
+			'{db_prefix}user_alerts_prefs',
+			array('id_member' => 'int', 'alert_pref' => 'string', 'alert_value' => 'string'),
+			$inserts,
+			array('id_member', 'alert_pref')
+		);
+
+		$_GET['a'] += $limit;
+		$step_progress['current'] = $_GET['a'];
+
+		if ($step_progress['current'] >= $maxMembers)
+			$is_done = true;
+	}
+	unset($_GET['a']);
 }
-unset($_GET['a']);
 ---}
 ---#
 
@@ -750,17 +785,19 @@ ALTER TABLE {$db_prefix}members
 /******************************************************************************/
 --- Adding support for topic unwatch
 /******************************************************************************/
----# Adding new columns to boards...
+---# Adding new column to log_topics...
 ALTER TABLE {$db_prefix}log_topics
-ADD COLUMN unwatched TINYINT(3) NOT NULL DEFAULT '0';
+ADD COLUMN unwatched TINYINT NOT NULL DEFAULT '0';
+---#
 
+---# Initializing new column in log_topics...
 UPDATE {$db_prefix}log_topics
 SET unwatched = 0;
 ---#
 
 ---# Fixing column name change...
 ALTER TABLE {$db_prefix}log_topics
-CHANGE COLUMN disregarded unwatched TINYINT(3) NOT NULL DEFAULT '0';
+DROP COLUMN disregarded;
 ---#
 
 /******************************************************************************/
@@ -889,45 +926,47 @@ foreach ($toMove as $move)
 /******************************************************************************/
 --- Cleaning up after old themes...
 /******************************************************************************/
----# Checking for "core" and removing it if necessary...
+---# Clean up settings for unused themes
 ---{
-// Do they have "core" installed?
-if (file_exists($GLOBALS['boarddir'] . '/Themes/core'))
-{
-	$core_dir = $GLOBALS['boarddir'] . '/Themes/core';
-	$theme_request = upgrade_query("
-		SELECT id_theme
-		FROM {$db_prefix}themes
-		WHERE variable = 'theme_dir'
-			AND value ='$core_dir'");
-
-	// Don't do anything if this theme is already uninstalled
-	if ($smcFunc['db_num_rows']($theme_request) == 1)
-	{
-		// Only one row, so no loop needed
-		$row = $smcFunc['db_fetch_row']($theme_request);
-		$id_theme = $row[0];
-		$smcFunc['db_free_result']($theme_request);
-
-		$known_themes = explode(', ', $modSettings['knownThemes']);
-
-		// Remove this value...
-		$known_themes = array_diff($known_themes, array($id_theme));
-
-		// Change back to a string...
-		$known_themes = implode(', ', $known_themes);
-
-		// Update the database
-		upgrade_query("
-			REPLACE INTO {$db_prefix}settings (variable, value)
-			VALUES ('knownThemes', '$known_themes')");
-
-		// Delete any info about this theme
-		upgrade_query("
-			DELETE FROM {$db_prefix}themes
-			WHERE id_theme = $id_theme");
+// Fetch list of theme directories
+$request = $smcFunc['db_query']('', '
+	SELECT id_theme, variable, value
+	  FROM {db_prefix}themes
+	WHERE variable = {string:theme_dir}
+	  AND id_theme != {int:default_theme};',
+	array(
+		'default_theme' => 1,
+		'theme_dir' => 'theme_dir',
+	)
+);
+// Check which themes exist in the filesystem & save off their IDs 
+// Dont delete default theme(start with 1 in the array), & make sure to delete old core theme
+$known_themes = array('1');
+$core_dir = $GLOBALS['boarddir'] . '/Themes/core';
+while ($row = $smcFunc['db_fetch_assoc']($request))	{
+	if ($row['value'] != $core_dir && is_dir($row['value'])) {
+		$known_themes[] = $row['id_theme'];
 	}
 }
+// Cleanup unused theme settings
+$smcFunc['db_query']('', '
+	DELETE FROM {db_prefix}themes
+	WHERE id_theme NOT IN ({array_int:known_themes});',
+	array(
+		'known_themes' => $known_themes,
+	)
+);
+// Set knownThemes
+$known_themes = implode(',', $known_themes);
+$smcFunc['db_query']('', '
+	UPDATE {db_prefix}settings
+	SET value = {string:known_themes}
+	WHERE variable = {string:known_theme_str};',
+	array(
+		'known_theme_str' => 'knownThemes',
+		'known_themes' => $known_themes,
+	)
+);
 ---}
 ---#
 
@@ -1022,22 +1061,22 @@ if (!empty($select_columns))
 		while ($row = $smcFunc['db_fetch_assoc']($request))
 		{
 			if (!empty($row['aim']))
-				$inserts[] = array($row['id_member'], -1, 'cust_aolins', $row['aim']);
+				$inserts[] = array($row['id_member'], 1, 'cust_aolins', $row['aim']);
 
 			if (!empty($row['icq']))
-				$inserts[] = array($row['id_member'], -1, 'cust_icq', $row['icq']);
+				$inserts[] = array($row['id_member'], 1, 'cust_icq', $row['icq']);
 
 			if (!empty($row['msn']))
-				$inserts[] = array($row['id_member'], -1, 'cust_skyp', $row['msn']);
+				$inserts[] = array($row['id_member'], 1, 'cust_skype', $row['msn']);
 
 			if (!empty($row['yim']))
-				$inserts[] = array($row['id_member'], -1, 'cust_yim', $row['yim']);
+				$inserts[] = array($row['id_member'], 1, 'cust_yahoo', $row['yim']);
 
 			if (!empty($row['location']))
-				$inserts[] = array($row['id_member'], -1, 'cust_loca', $row['location']);
+				$inserts[] = array($row['id_member'], 1, 'cust_loca', $row['location']);
 
 			if (!empty($row['gender']) && isset($genderTypes[INTval($row['gender'])]))
-				$inserts[] = array($row['id_member'], -1, 'cust_gender', $genderTypes[INTval($row['gender'])]);
+				$inserts[] = array($row['id_member'], 1, 'cust_gender', $genderTypes[INTval($row['gender'])]);
 		}
 		$smcFunc['db_free_result']($request);
 
@@ -1128,7 +1167,7 @@ CREATE TABLE IF NOT EXISTS {$db_prefix}user_drafts (
 	to_list VARCHAR(255) NOT NULL DEFAULT '',
 	PRIMARY KEY id_draft(id_draft),
 	INDEX idx_id_member (id_member, id_draft, type)
-) ENGINE=MyISAM{$db_collation};
+) ENGINE=MyISAM;
 ---#
 
 ---# Adding draft permissions...
@@ -1216,7 +1255,7 @@ CREATE TABLE IF NOT EXISTS {$db_prefix}mentions (
 	content_id INT DEFAULT '0',
 	content_type VARCHAR(10) DEFAULT '',
 	id_mentioned INT DEFAULT 0,
-	id_member INT NOT NULL DEFAULT 0,
+	id_member INT(10) UNSIGNED NOT NULL DEFAULT 0,
 	`time` INT NOT NULL DEFAULT 0,
 	PRIMARY KEY (content_id, content_type, id_mentioned),
 	INDEX idx_content (content_id, content_type),
@@ -1232,7 +1271,7 @@ CREATE TABLE IF NOT EXISTS {$db_prefix}moderator_groups (
 	id_board SMALLINT(5) UNSIGNED DEFAULT '0',
 	id_group SMALLINT(5) UNSIGNED DEFAULT '0',
 	PRIMARY KEY (id_board, id_group)
-) ENGINE=MyISAM{$db_collation};
+) ENGINE=MyISAM;
 ---#
 
 /******************************************************************************/
@@ -1358,7 +1397,7 @@ CREATE TABLE IF NOT EXISTS {$db_prefix}qanda (
 	answers TEXT NOT NULL,
 	PRIMARY KEY (id_question),
 	INDEX idx_lngfile (lngfile)
-) ENGINE=MyISAM{$db_collation};
+) ENGINE=MyISAM;
 ---#
 
 ---# Moving questions and answers to the new table
@@ -1861,7 +1900,7 @@ ALTER TABLE {$db_prefix}members
 ADD tfa_backup VARCHAR(64) NOT NULL DEFAULT '';
 ---#
 
----# Force 2FA per membergroup?
+---# Force 2FA per membergroup
 ALTER TABLE {$db_prefix}membergroups
 ADD COLUMN tfa_required TINYINT(3) NOT NULL DEFAULT '0';
 ---#
@@ -2022,23 +2061,9 @@ DROP ip_high4;
 ---# Remove the old ip column
 ---{
 $doChange = true;
-// Get the details about this change.
-$request = $smcFunc['db_query']('', '
-	SHOW FIELDS
-	FROM {db_prefix}log_actions
-	WHERE Field = {string:name}',
-	array(
-		'name' => 'ip',
-));
-if ($smcFunc['db_num_rows']($request) == 1)
-{
-	list (, $columnType) = $smcFunc['db_fetch_row']($request);
-
-	// This hasn't been converted yet.
-	if (stripos($columnType, 'varbinary') !== false)
-		$doChange = false;
-}
-$smcFunc['db_free_result']($request);
+$column_info = upgradeGetColumnInfo('{db_prefix}log_actions', 'ip');
+if (stripos($column_info['type'], 'varbinary') !== false)
+	$doChange = false;
 
 if ($doChange)
 	upgrade_query("ALTER TABLE {$db_prefix}log_actions DROP COLUMN ip;");
@@ -2055,23 +2080,9 @@ ALTER TABLE {$db_prefix}log_actions ADD COLUMN ip VARBINARY(16);
 ---# Delete old column log banned ip
 ---{
 $doChange = true;
-// Get the details about this change.
-$request = $smcFunc['db_query']('', '
-	SHOW FIELDS
-	FROM {db_prefix}log_banned
-	WHERE Field = {string:name}',
-	array(
-		'name' => 'ip',
-));
-if ($smcFunc['db_num_rows']($request) == 1)
-{
-	list (, $columnType) = $smcFunc['db_fetch_row']($request);
-
-	// This hasn't been converted yet.
-	if (stripos($columnType, 'varbinary') !== false)
-		$doChange = false;
-}
-$smcFunc['db_free_result']($request);
+$column_info = upgradeGetColumnInfo('{db_prefix}log_banned', 'ip');
+if (stripos($column_info['type'], 'varbinary') !== false)
+	$doChange = false;
 
 if ($doChange)
 	upgrade_query("ALTER TABLE {$db_prefix}log_banned DROP COLUMN ip;");
@@ -2088,23 +2099,9 @@ ALTER TABLE {$db_prefix}log_banned ADD COLUMN ip VARBINARY(16);
 ---# Delete old log errors ip column
 ---{
 $doChange = true;
-// Get the details about this change.
-$request = $smcFunc['db_query']('', '
-	SHOW FIELDS
-	FROM {db_prefix}log_errors
-	WHERE Field = {string:name}',
-	array(
-		'name' => 'ip',
-));
-if ($smcFunc['db_num_rows']($request) == 1)
-{
-	list (, $columnType) = $smcFunc['db_fetch_row']($request);
-
-	// This hasn't been converted yet.
-	if (stripos($columnType, 'varbinary') !== false)
-		$doChange = false;
-}
-$smcFunc['db_free_result']($request);
+$column_info = upgradeGetColumnInfo('{db_prefix}log_errors', 'ip');
+if (stripos($column_info['type'], 'varbinary') !== false)
+	$doChange = false;
 
 if ($doChange)
 	upgrade_query("ALTER TABLE {$db_prefix}log_errors DROP COLUMN ip;");
@@ -2125,23 +2122,9 @@ CREATE INDEX {$db_prefix}log_errors_ip ON {$db_prefix}log_errors (ip);
 ---# Rename old ip columns on members
 ---{
 $doChange = true;
-// Get the details about this change.
-$request = $smcFunc['db_query']('', '
-	SHOW FIELDS
-	FROM {db_prefix}members
-	WHERE Field = {string:name}',
-	array(
-		'name' => 'member_ip',
-));
-if ($smcFunc['db_num_rows']($request) == 1)
-{
-	list (, $columnType) = $smcFunc['db_fetch_row']($request);
-
-	// This hasn't been converted yet.
-	if (stripos($columnType, 'varbinary') !== false)
-		$doChange = false;
-}
-$smcFunc['db_free_result']($request);
+$column_info = upgradeGetColumnInfo('{db_prefix}members', 'member_ip');
+if (stripos($column_info['type'], 'varbinary') !== false)
+	$doChange = false;
 
 if ($doChange)
 {
@@ -2157,22 +2140,14 @@ ADD COLUMN member_ip VARBINARY(16),
 ADD COLUMN member_ip2 VARBINARY(16);
 ---#
 
----# Create a ip index for old ips
+---# Create an ip index for old ips
 ---{
-// Get the details about this change.
-$request = $smcFunc['db_query']('', '
-	SHOW FIELDS
-	FROM {db_prefix}members
-	WHERE Field = {string:name}',
-	array(
-		'name' => 'member_ip_old',
-));
-if ($smcFunc['db_num_rows']($request) == 1)
+$results = $smcFunc['db_list_columns']('{db_prefix}members');
+if (in_array('member_ip_old', $results))
 {
 	upgrade_query("CREATE INDEX {$db_prefix}temp_old_ip ON {$db_prefix}members (member_ip_old);");
 	upgrade_query("CREATE INDEX {$db_prefix}temp_old_ip2 ON {$db_prefix}members (member_ip2_old);");
 }
-$smcFunc['db_free_result']($request);
 ---}
 ---#
 
@@ -2180,6 +2155,7 @@ $smcFunc['db_free_result']($request);
 ---{
 MySQLConvertOldIp('members','member_ip_old','member_ip');
 ---}
+---#
 
 ---# Convert member ips2
 ---{
@@ -2187,38 +2163,25 @@ MySQLConvertOldIp('members','member_ip2_old','member_ip2');
 ---}
 ---#
 
+---# Remove the temporary ip indexes
+DROP INDEX temp_old_ip on {$db_prefix}members;
+DROP INDEX temp_old_ip2 on {$db_prefix}members;
+---#
+
 ---# Remove the old member columns
 ALTER TABLE {$db_prefix}members DROP COLUMN member_ip_old;
 ALTER TABLE {$db_prefix}members DROP COLUMN member_ip2_old;
 ---#
 
----# Remove the temporary ip indexes
-DROP INDEX temp_old_ip on {$db_prefix}messages;
-DROP INDEX temp_old_ip2 on {$db_prefix}messages;
----#
 /******************************************************************************/
 --- Update messages poster_ip with ipv6 support (May take a while)
 /******************************************************************************/
 ---# Rename old ip column on messages
 ---{
 $doChange = true;
-// Get the details about this change.
-$request = $smcFunc['db_query']('', '
-	SHOW FIELDS
-	FROM {db_prefix}messages
-	WHERE Field = {string:name}',
-	array(
-		'name' => 'poster_ip',
-));
-if ($smcFunc['db_num_rows']($request) == 1)
-{
-	list (, $columnType) = $smcFunc['db_fetch_row']($request);
-
-	// This hasn't been converted yet.
-	if (stripos($columnType, 'varbinary') !== false)
-		$doChange = false;
-}
-$smcFunc['db_free_result']($request);
+$column_info = upgradeGetColumnInfo('{db_prefix}messages', 'poster_ip');
+if (stripos($column_info['type'], 'varbinary') !== false)
+	$doChange = false;
 
 if ($doChange)
 	upgrade_query("ALTER TABLE {$db_prefix}messages CHANGE poster_ip poster_ip_old varchar(200);");
@@ -2229,20 +2192,12 @@ if ($doChange)
 ALTER TABLE {$db_prefix}messages ADD COLUMN poster_ip VARBINARY(16);
 ---#
 
----# Create a ip index for old ips
+---# Create an ip index for old ips
 ---{
 $doChange = true;
-// Get the details about this change.
-$request = $smcFunc['db_query']('', '
-	SHOW FIELDS
-	FROM {db_prefix}members
-	WHERE Field = {string:name}',
-	array(
-		'name' => 'member_ip_old',
-));
-if ($smcFunc['db_num_rows']($request) == 0)
+$results = $smcFunc['db_list_columns']('{db_prefix}members');
+if (!in_array('member_ip_old', $results))
 	$doChange = false;
-$smcFunc['db_free_result']($request);
 
 if ($doChange)
 	upgrade_query("CREATE INDEX {$db_prefix}temp_old_poster_ip ON {$db_prefix}messages (poster_ip_old);");
@@ -2255,20 +2210,20 @@ MySQLConvertOldIp('messages','poster_ip_old','poster_ip');
 ---}
 ---#
 
+---# Remove the temporary ip indexes
+DROP INDEX temp_old_poster_ip on {$db_prefix}messages;
+---#
+
 ---# Drop old column to messages
 ALTER TABLE {$db_prefix}messages DROP COLUMN poster_ip_old;
 ---#
 
----# Add the index again to mesages poster ip topic
+---# Add the index again to messages poster ip topic
 CREATE INDEX {$db_prefix}messages_ip_index ON {$db_prefix}messages (poster_ip, id_topic);
 ---#
 
----# Add the index again to mesages poster ip msg
+---# Add the index again to messages poster ip msg
 CREATE INDEX {$db_prefix}messages_related_ip ON {$db_prefix}messages (id_member, poster_ip, id_msg);
----#
-
----# Remove the temporary ip indexes
-DROP INDEX temp_old_poster_ip on {$db_prefix}messages;
 ---#
 
 /******************************************************************************/
@@ -2277,23 +2232,9 @@ DROP INDEX temp_old_poster_ip on {$db_prefix}messages;
 ---# Prep floodcontrol
 ---{
 $doChange = true;
-// Get the details about this change.
-$request = $smcFunc['db_query']('', '
-	SHOW FIELDS
-	FROM {db_prefix}log_floodcontrol
-	WHERE Field = {string:name}',
-	array(
-		'name' => 'ip',
-));
-if ($smcFunc['db_num_rows']($request) == 1)
-{
-	list (, $columnType) = $smcFunc['db_fetch_row']($request);
-
-	// This hasn't been converted yet.
-	if (stripos($columnType, 'varbinary') !== false)
-		$doChange = false;
-}
-$smcFunc['db_free_result']($request);
+$column_info = upgradeGetColumnInfo('{db_prefix}log_floodcontrol', 'ip');
+if (stripos($column_info['type'], 'varbinary') !== false)
+	$doChange = false;
 
 if ($doChange)
 {
@@ -2318,23 +2259,9 @@ ALTER TABLE {$db_prefix}log_floodcontrol ADD PRIMARY KEY (ip,log_type);
 ---# Delete the old ip column for log online
 ---{
 $doChange = true;
-// Get the details about this change.
-$request = $smcFunc['db_query']('', '
-	SHOW FIELDS
-	FROM {db_prefix}log_online
-	WHERE Field = {string:name}',
-	array(
-		'name' => 'ip',
-));
-if ($smcFunc['db_num_rows']($request) == 1)
-{
-	list (, $columnType) = $smcFunc['db_fetch_row']($request);
-
-	// This hasn't been converted yet.
-	if (stripos($columnType, 'varbinary') !== false)
-		$doChange = false;
-}
-$smcFunc['db_free_result']($request);
+$column_info = upgradeGetColumnInfo('{db_prefix}log_online', 'ip');
+if (stripos($column_info['type'], 'varbinary') !== false)
+	$doChange = false;
 
 if ($doChange)
 	upgrade_query("ALTER TABLE {$db_prefix}log_online DROP COLUMN ip;");
@@ -2351,23 +2278,9 @@ ALTER TABLE {$db_prefix}log_online ADD COLUMN ip VARBINARY(16);
 ---# Drop old ip column for reported comments
 ---{
 $doChange = true;
-// Get the details about this change.
-$request = $smcFunc['db_query']('', '
-	SHOW FIELDS
-	FROM {db_prefix}log_reported_comments
-	WHERE Field = {string:name}',
-	array(
-		'name' => 'member_ip',
-));
-if ($smcFunc['db_num_rows']($request) == 1)
-{
-	list (, $columnType) = $smcFunc['db_fetch_row']($request);
-
-	// This hasn't been converted yet.
-	if (stripos($columnType, 'varbinary') !== false)
-		$doChange = false;
-}
-$smcFunc['db_free_result']($request);
+$column_info = upgradeGetColumnInfo('{db_prefix}log_reported_comments', 'member_ip');
+if (stripos($column_info['type'], 'varbinary') !== false)
+	$doChange = false;
 
 if ($doChange)
 	upgrade_query("ALTER TABLE {$db_prefix}log_reported_comments DROP COLUMN member_ip;");
@@ -2384,23 +2297,9 @@ ALTER TABLE {$db_prefix}log_reported_comments ADD COLUMN member_ip VARBINARY(16)
 ---# Drop old ip columns for member logins
 ---{
 $doChange = true;
-// Get the details about this change.
-$request = $smcFunc['db_query']('', '
-	SHOW FIELDS
-	FROM {db_prefix}member_logins
-	WHERE Field = {string:name}',
-	array(
-		'name' => 'ip',
-));
-if ($smcFunc['db_num_rows']($request) == 1)
-{
-	list (, $columnType) = $smcFunc['db_fetch_row']($request);
-
-	// This hasn't been converted yet.
-	if (stripos($columnType, 'varbinary') !== false)
-		$doChange = false;
-}
-$smcFunc['db_free_result']($request);
+$column_info = upgradeGetColumnInfo('{db_prefix}member_logins', 'ip');
+if (stripos($column_info['type'], 'varbinary') !== false)
+	$doChange = false;
 
 if ($doChange)
 {
@@ -2421,23 +2320,9 @@ ALTER TABLE {$db_prefix}member_logins ADD COLUMN ip2 VARBINARY(16);
 ---# Delete old column log banned ip
 ---{
 $doChange = true;
-// Get the details about this change.
-$request = $smcFunc['db_query']('', '
-	SHOW FIELDS
-	FROM {db_prefix}log_online
-	WHERE Field = {string:name}',
-	array(
-		'name' => 'ip',
-));
-if ($smcFunc['db_num_rows']($request) == 1)
-{
-	list (, $columnType) = $smcFunc['db_fetch_row']($request);
-
-	// This hasn't been converted yet.
-	if (stripos($columnType, 'varbinary') !== false)
-		$doChange = false;
-}
-$smcFunc['db_free_result']($request);
+$column_info = upgradeGetColumnInfo('{db_prefix}log_online', 'ip');
+if (stripos($column_info['type'], 'varbinary') !== false)
+	$doChange = false;
 
 if ($doChange)
 	upgrade_query("ALTER TABLE {$db_prefix}log_online DROP COLUMN ip;");
@@ -2454,4 +2339,58 @@ ALTER TABLE {$db_prefix}log_online ADD COLUMN ip VARBINARY(16);
 ---# Changing the "profile_other" permission to "profile_website"
 UPDATE {$db_prefix}permissions SET permission = 'profile_website_own' WHERE permission = 'profile_other_own';
 UPDATE {$db_prefix}permissions SET permission = 'profile_website_any' WHERE permission = 'profile_other_any';
+---#
+
+/******************************************************************************/
+--- drop col pm_email_notify from members
+/******************************************************************************/
+---# drop column pm_email_notify on table members
+ALTER TABLE {$db_prefix}members DROP COLUMN pm_email_notify;
+---#
+
+/******************************************************************************/
+--- Adding support for start and end times on calendar events
+/******************************************************************************/
+---# Add start_time end_time, and timezone columns to calendar table
+ALTER TABLE {$db_prefix}calendar
+ADD COLUMN start_time time,
+ADD COLUMN end_time time,
+ADD COLUMN timezone VARCHAR(80);
+---#
+
+---# Update cal_maxspan and drop obsolete cal_allowspan setting
+---{
+	if (!isset($modSettings['cal_allowspan']))
+		$cal_maxspan = 0;
+	elseif ($modSettings['cal_allowspan'] == false)
+		$cal_maxspan = 1;
+	else
+		$cal_maxspan = ($modSettings['cal_maxspan'] > 1) ? $modSettings['cal_maxspan'] : 0;
+
+	upgrade_query("
+		UPDATE {$db_prefix}settings
+		SET value = '$cal_maxspan'
+		WHERE variable = 'cal_maxspan'");
+
+	if (isset($modSettings['cal_allowspan']))
+		upgrade_query("
+			DELETE FROM {$db_prefix}settings
+			WHERE variable = 'cal_allowspan'");
+---}
+---#
+
+/******************************************************************************/
+--- Adding location support for calendar events
+/******************************************************************************/
+---# Add location column to calendar table
+ALTER TABLE {$db_prefix}calendar
+ADD COLUMN location VARCHAR(255) NOT NULL DEFAULT '';
+---#
+
+/******************************************************************************/
+--- Cleaning up after old UTF-8 languages
+/******************************************************************************/
+---# Update the members' languages
+UPDATE {$db_prefix}members
+SET lngfile = REPLACE(lngfile, '-utf8', '');
 ---#

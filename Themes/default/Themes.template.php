@@ -4,7 +4,7 @@
  *
  * @package SMF
  * @author Simple Machines http://www.simplemachines.org
- * @copyright 2016 Simple Machines and individual contributors
+ * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
  * @version 2.1 Beta 3
@@ -24,7 +24,7 @@ function template_main()
 	echo '
 		<div class="cat_bar">
 		<h3 class="catbg">
-			<a href="', $scripturl, '?action=helpadmin;help=themes" onclick="return reqOverlayDiv(this.href);" class="help"><span class="generic_icons help" title="', $txt['help'],'"></span></a>
+			<a href="', $scripturl, '?action=helpadmin;help=themes" onclick="return reqOverlayDiv(this.href);" class="help"><span class="generic_icons help" title="', $txt['help'], '"></span></a>
 			', $txt['themeadmin_title'], '
 		</h3>
 		</div>
@@ -192,7 +192,7 @@ function template_list_themes()
 	if (isset($_GET['done']))
 		echo '
 	<div class="infobox">
-		', $txt['theme_confirmed_'. $_GET['done']] ,'
+		', $txt['theme_confirmed_' . $_GET['done']], '
 	</div>';
 
 	echo '
@@ -218,7 +218,7 @@ function template_list_themes()
 			<div class="cat_bar">
 				<h3 class="catbg">
 					<span class="floatleft">
-						', (!empty($theme['enable']) || $theme['id'] == 1 ? '<a href="'. $scripturl .'?action=admin;area=theme;th='. $theme['id'] .';'. $context['session_var'] .'='. $context['session_id'] .';sa=list">'. $theme['name'] .'</a>' : $theme['name'] ),'', (!empty($theme['version']) ? ' <em>(' . $theme['version'] . ')</em>' : ''), '
+						', (!empty($theme['enable']) || $theme['id'] == 1 ? '<a href="' . $scripturl . '?action=admin;area=theme;th=' . $theme['id'] . ';' . $context['session_var'] . '=' . $context['session_id'] . ';sa=list">' . $theme['name'] . '</a>' : $theme['name']), '', (!empty($theme['version']) ? ' <em>(' . $theme['version'] . ')</em>' : ''), '
 					</span>';
 
 			// You *cannot* disable/enable/delete the default theme. It's important!
@@ -229,7 +229,7 @@ function template_list_themes()
 
 				// Enable/Disable.
 				echo '
-					<a href="', $scripturl, '?action=admin;area=theme;sa=enable;th=', $theme['id'], ';', $context['session_var'], '=', $context['session_id'], ';', $context['admin-tre_token_var'], '=', $context['admin-tre_token'], '', (!empty($theme['enable']) ? ';disabled' : '') ,'" data-confirm="', $txt['theme_'. (!empty($theme['enable']) ? 'disable' : 'enable') .'_confirm'], '" class="you_sure"><span class="generic_icons ',!empty($theme['enable']) ? 'disable' : 'enable','" title="', $txt['theme_'. (!empty($theme['enable']) ? 'disable' : 'enable')] ,'"></span></a>';
+					<a href="', $scripturl, '?action=admin;area=theme;sa=enable;th=', $theme['id'], ';', $context['session_var'], '=', $context['session_id'], ';', $context['admin-tre_token_var'], '=', $context['admin-tre_token'], '', (!empty($theme['enable']) ? ';disabled' : ''), '" data-confirm="', $txt['theme_' . (!empty($theme['enable']) ? 'disable' : 'enable') . '_confirm'], '" class="you_sure"><span class="generic_icons ', !empty($theme['enable']) ? 'disable' : 'enable', '" title="', $txt['theme_' . (!empty($theme['enable']) ? 'disable' : 'enable')], '"></span></a>';
 
 				// Deleting.
 				echo '
@@ -347,8 +347,35 @@ function template_set_options()
 	echo '
 				<dl class="settings">';
 
-	foreach ($context['options'] as $setting)
+	$skeys = array_keys($context['options']);
+	$first_option_key = array_shift($skeys);
+	$titled_section = false;
+
+	foreach ($context['options'] as $i => $setting)
 	{
+		// Just spit out separators and move on
+		if (empty($setting) || !is_array($setting))
+		{
+			// Insert a separator (unless this is the first item in the list)
+			if ($i !== $first_option_key)
+				echo '
+				</dl>
+				<hr>
+				<dl class="settings">';
+
+			// Should we give a name to this section?
+			if (is_string($setting) && !empty($setting))
+			{
+				$titled_section = true;
+				echo '
+					<dt><b>' . $setting . '</b></dt><dd></dd>';
+			}
+			else
+				$titled_section = false;
+
+			continue;
+		}
+
 		echo '
 					<dt ', $context['theme_options_reset'] ? 'style="width:50%"' : '', '>';
 
@@ -361,16 +388,18 @@ function template_set_options()
 							<option value="2">', $txt['themeadmin_reset_options_default'], '</option>
 						</select>&nbsp;</span>';
 
+		echo '
+						<label for="options_', $setting['id'], '">', !$titled_section ? '<b>' : '', $setting['label'], !$titled_section ? '</b>' : '', '</label>';
+		if (isset($setting['description']))
+			echo '
+						<br><span class="smalltext">', $setting['description'], '</span>';
+		echo '
+					</dt>';
+
 		// display checkbox options
 		if ($setting['type'] == 'checkbox')
 		{
 			echo '
-						<label for="options_', $setting['id'], '">', $setting['label'], '</label>';
-			if (isset($setting['description']))
-				echo '
-						<br><span class="smalltext">', $setting['description'], '</span>';
-		echo '
-					</dt>
 					<dd ', $context['theme_options_reset'] ? 'style="width:40%"' : '', '>
 						<input type="hidden" name="' . (!empty($setting['default']) ? 'default_' : '') . 'options[' . $setting['id'] . ']" value="0">
 						<input type="checkbox" name="', !empty($setting['default']) ? 'default_' : '', 'options[', $setting['id'], ']" id="options_', $setting['id'], '"', !empty($setting['value']) ? ' checked' : '', $context['theme_options_reset'] ? ' disabled' : '', ' value="1" class="input_check floatleft">';
@@ -379,12 +408,6 @@ function template_set_options()
 		elseif ($setting['type'] == 'list')
 		{
 			echo '
-						<label for="options_', $setting['id'], '">', $setting['label'], '</label>';
-			if (isset($setting['description']))
-				echo '
-						<br><span class="smalltext">', $setting['description'], '</span>';
-		echo '
-					</dt>
 					<dd ', $context['theme_options_reset'] ? 'style="width:40%"' : '', '>
 						&nbsp;<select class="floatleft" name="', !empty($setting['default']) ? 'default_' : '', 'options[', $setting['id'], ']" id="options_', $setting['id'], '"', $context['theme_options_reset'] ? ' disabled' : '', '>';
 
@@ -401,12 +424,6 @@ function template_set_options()
 		else
 		{
 			echo '
-						<label for="options_', $setting['id'], '">', $setting['label'], '</label>';
-			if (isset($setting['description']))
-				echo '
-						<br><span class="smalltext">', $setting['description'], '</span>';
-		echo '
-					</dt>
 					<dd ', $context['theme_options_reset'] ? 'style="width:40%"' : '', '>';
 
 			if (isset($setting['type']) && $setting['type'] == 'number')
@@ -417,6 +434,11 @@ function template_set_options()
 
 				echo '
 						<input type="number"', $min . $max . $step;
+			}
+			else if (isset($setting['type']) && $setting['type'] == 'url')
+			{
+				echo'
+						<input type="url"';
 			}
 			else
 			{
@@ -456,7 +478,7 @@ function template_set_settings()
 		<form action="', $scripturl, '?action=admin;area=theme;sa=list;th=', $context['theme_settings']['theme_id'], '" method="post" accept-charset="', $context['character_set'], '">
 			<div class="cat_bar">
 				<h3 class="catbg">
-					<a href="', $scripturl, '?action=helpadmin;help=theme_settings" onclick="return reqOverlayDiv(this.href);" class="help"><span class="generic_icons help" title="', $txt['help'],'"></span></a> ', $txt['theme_settings'], ' - ', $context['theme_settings']['name'], '
+					<a href="', $scripturl, '?action=helpadmin;help=theme_settings" onclick="return reqOverlayDiv(this.href);" class="help"><span class="generic_icons help" title="', $txt['help'], '"></span></a> ', $txt['theme_settings'], ' - ', $context['theme_settings']['name'], '
 				</h3>
 			</div>
 			<br>';
@@ -558,31 +580,52 @@ function template_set_settings()
 				</h3>
 			</div>
 			<div class="windowbg2 noup">
-				<dl class="settings flow_auto">';
+				<dl class="settings">';
 
-	foreach ($context['settings'] as $setting)
+	$skeys = array_keys($context['settings']);
+	$first_setting_key = array_shift($skeys);
+	$titled_section = false;
+
+	foreach ($context['settings'] as $i => $setting)
 	{
 		// Is this a separator?
-		if (empty($setting))
+		if (empty($setting) || !is_array($setting))
 		{
-			echo '
+			// We don't need a separator before the first list element
+			if ($i !== $first_setting_key)
+				echo '
 				</dl>
 				<hr>
-				<dl class="settings flow_auto">';
-		}
-		// A checkbox?
-		elseif ($setting['type'] == 'checkbox')
-		{
-			echo '
-					<dt>
-						<label for="', $setting['id'], '">', $setting['label'], '</label>:';
+				<dl class="settings">';
 
-			if (isset($setting['description']))
-				echo '<br>
+			// Add a fake heading?
+			if (is_string($setting) && !empty($setting))
+			{
+				$titled_section = true;
+				echo '
+					<dt><b>' . $setting . '</b></dt><dd></dd>';
+			}
+			else
+				$titled_section = false;
+
+			continue;
+		}
+
+		echo '
+					<dt>
+						<label for="', $setting['id'], '">', !$titled_section ? '<b>' : '', $setting['label'], !$titled_section ? '</b>' : '', '</label>:';
+
+		if (isset($setting['description']))
+			echo '<br>
 						<span class="smalltext">', $setting['description'], '</span>';
 
+		echo '
+					</dt>';
+
+		// A checkbox?
+		if ($setting['type'] == 'checkbox')
+		{
 			echo '
-					</dt>
 					<dd>
 						<input type="hidden" name="', !empty($setting['default']) ? 'default_' : '', 'options[', $setting['id'], ']" value="0">
 						<input type="checkbox" name="', !empty($setting['default']) ? 'default_' : '', 'options[', $setting['id'], ']" id="', $setting['id'], '"', !empty($setting['value']) ? ' checked' : '', ' value="1" class="input_check">
@@ -592,15 +635,6 @@ function template_set_settings()
 		elseif ($setting['type'] == 'list')
 		{
 			echo '
-					<dt>
-						<label for="', $setting['id'], '">', $setting['label'], '</label>:';
-
-			if (isset($setting['description']))
-				echo '<br>
-						<span class="smalltext">', $setting['description'], '</span>';
-
-			echo '
-					</dt>
 					<dd>
 						<select name="', !empty($setting['default']) ? 'default_' : '', 'options[', $setting['id'], ']" id="', $setting['id'], '">';
 
@@ -616,16 +650,8 @@ function template_set_settings()
         	elseif ($setting['type'] == 'textarea')
 		{
 			echo '
-					<dt>
-						<label for="', $setting['id'], '">', $setting['label'], '</label>:';
-
-			if (isset($setting['description']))
-				echo '<br>
-						<span class="smalltext">', $setting['description'], '</span>';
-			echo '
-					</dt>
 					<dd>
-						<textarea rows="4" style="width: 95%;" cols="40" name="', !empty($setting['default']) ? 'default_' : '','options[', $setting['id'], ']" id="', $setting['id'], '">', $setting['value'], '</textarea>';
+						<textarea rows="4" style="width: 95%;" cols="40" name="', !empty($setting['default']) ? 'default_' : '', 'options[', $setting['id'], ']" id="', $setting['id'], '">', $setting['value'], '</textarea>';
                 echo '
                 			</dd>';
 		}
@@ -633,15 +659,6 @@ function template_set_settings()
 		else
 		{
 			echo '
-					<dt>
-						<label for="', $setting['id'], '">', $setting['label'], '</label>:';
-
-			if (isset($setting['description']))
-				echo '<br>
-						<span class="smalltext">', $setting['description'], '</span>';
-
-			echo '
-					</dt>
 					<dd>';
 
 			if (isset($setting['type']) && $setting['type'] == 'number')
@@ -652,6 +669,11 @@ function template_set_settings()
 
 				echo '
 						<input type="number"', $min . $max . $step;
+			}
+			else if (isset($setting['type']) && $setting['type'] == 'url')
+			{
+				echo'
+						<input type="url"';
 			}
 			else
 			{
@@ -809,14 +831,14 @@ function template_installed()
 	if (!empty($context['error_message']))
 		echo '
 			<p>
-				', $context['error_message'] ,'
+				', $context['error_message'], '
 			</p>';
 
 	// Not much to show except a link back...
 	else
 		echo '
 			<p>
-				<a href="', $scripturl, '?action=admin;area=theme;sa=list;th=', $context['installed_theme']['id'], ';', $context['session_var'], '=', $context['session_id'], '">', $context['installed_theme']['name'], '</a> ', $txt['theme_'. (isset($context['installed_theme']['updated']) ? 'updated' : 'installed') .'_message'], '
+				<a href="', $scripturl, '?action=admin;area=theme;sa=list;th=', $context['installed_theme']['id'], ';', $context['session_var'], '=', $context['session_id'], '">', $context['installed_theme']['name'], '</a> ', $txt['theme_' . (isset($context['installed_theme']['updated']) ? 'updated' : 'installed') . '_message'], '
 			</p>
 			<p>
 				<a href="', $scripturl, '?action=admin;area=theme;sa=admin;', $context['session_var'], '=', $context['session_id'], '">', $txt['back'], '</a>
@@ -1156,7 +1178,7 @@ function template_edit_template()
 		echo '
 				<label for="on_line', $part['line'], '">', $txt['themeadmin_edit_on_line'], ' ', $part['line'], '</label>:<br>
 				<div class="centertext">
-					<textarea id="on_line', $part['line'] ,'" name="entire_file[]" cols="80" rows="', $part['lines'] > 14 ? '14' : $part['lines'], '" class="edit_file">', $part['data'], '</textarea>
+					<textarea id="on_line', $part['line'], '" name="entire_file[]" cols="80" rows="', $part['lines'] > 14 ? '14' : $part['lines'], '" class="edit_file">', $part['data'], '</textarea>
 				</div>';
 
 	echo '

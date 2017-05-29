@@ -8,7 +8,7 @@
  *
  * @package SMF
  * @author Simple Machines http://www.simplemachines.org
- * @copyright 2016 Simple Machines and individual contributors
+ * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
  * @version 2.1 Beta 3
@@ -47,7 +47,6 @@ function automanage_attachments_check_directory()
 
 	$year = date('Y');
 	$month = date('m');
-	$day = date('d');
 
 	$rand = md5(mt_rand());
 	$rand1 = $rand[1];
@@ -150,7 +149,7 @@ function automanage_attachments_create_directory($updir)
 	{
 		if (!@is_dir($directory))
 		{
-			if (!@mkdir($directory,0755))
+			if (!@mkdir($directory, 0755))
 			{
 				$context['dir_creation_error'] = 'attachments_no_create';
 				return false;
@@ -248,7 +247,7 @@ function automanage_attachments_by_space()
  *
  * @return array|bool An array of all the directories and subdirectories or false on failure
  */
-function get_directory_tree_elements ($directory)
+function get_directory_tree_elements($directory)
 {
 	/*
 		In Windows server both \ and / can be used as directory separators in paths
@@ -264,7 +263,7 @@ function get_directory_tree_elements ($directory)
 		if (substr($directory, 0, 1) != DIRECTORY_SEPARATOR)
 			return false;
 
-		$tree = explode(DIRECTORY_SEPARATOR, trim($directory,DIRECTORY_SEPARATOR));
+		$tree = explode(DIRECTORY_SEPARATOR, trim($directory, DIRECTORY_SEPARATOR));
 	}
 	return $tree;
 }
@@ -277,7 +276,7 @@ function get_directory_tree_elements ($directory)
  *
  * @return string|bool The first part of the path or false on error
  */
-function attachments_init_dir (&$tree, &$count)
+function attachments_init_dir(&$tree, &$count)
 {
 	$directory = '';
 	// If on Windows servers the first part of the path is the drive (e.g. "C:")
@@ -286,7 +285,7 @@ function attachments_init_dir (&$tree, &$count)
 		 //Better be sure that the first part of the path is actually a drive letter...
 		 //...even if, I should check this in the admin page...isn't it?
 		 //...NHAAA Let's leave space for users' complains! :P
-		if (preg_match('/^[a-z]:$/i',$tree[0]))
+		if (preg_match('/^[a-z]:$/i', $tree[0]))
 			$directory = array_shift($tree);
 		else
 			return false;
@@ -425,6 +424,11 @@ function processAttachments()
 		$destName = $context['attach_dir'] . '/' . $attachID;
 		if (empty($errors))
 		{
+			// The reported MIME type of the attachment might not be reliable.
+			// Fortunately, PHP 5.3+ lets us easily verify the real MIME type.
+			if (function_exists('mime_content_type'))
+				$_FILES['attachment']['type'][$n] = mime_content_type($_FILES['attachment']['tmp_name'][$n]);
+
 			$_SESSION['temp_attachments'][$attachID] = array(
 				'name' => $smcFunc['htmlspecialchars'](basename($_FILES['attachment']['name'][$n])),
 				'tmp_name' => $destName,
@@ -484,7 +488,7 @@ function attachmentChecks($attachID)
 	global $modSettings, $context, $sourcedir, $smcFunc;
 
 	// No data or missing data .... Not necessarily needed, but in case a mod author missed something.
-	if ( empty($_SESSION['temp_attachments'][$attachID]))
+	if (empty($_SESSION['temp_attachments'][$attachID]))
 		$error = '$_SESSION[\'temp_attachments\'][$attachID]';
 
 	elseif (empty($attachID))
@@ -701,7 +705,7 @@ function createAttachment(&$attachmentOptions)
 	if (empty($attachmentOptions['id_folder']) || !in_array($attachmentOptions['id_folder'], $folders))
 		$attachmentOptions['id_folder'] = $modSettings['currentAttachmentUploadDir'];
 
-	$smcFunc['db_insert']('',
+	$attachmentOptions['id'] = $smcFunc['db_insert']('',
 		'{db_prefix}attachments',
 		array(
 			'id_folder' => 'int', 'id_msg' => 'int', 'filename' => 'string-255', 'file_hash' => 'string-40', 'fileext' => 'string-8',
@@ -713,9 +717,9 @@ function createAttachment(&$attachmentOptions)
 			(int) $attachmentOptions['size'], (empty($attachmentOptions['width']) ? 0 : (int) $attachmentOptions['width']), (empty($attachmentOptions['height']) ? '0' : (int) $attachmentOptions['height']),
 			(!empty($attachmentOptions['mime_type']) ? $attachmentOptions['mime_type'] : ''), (int) $attachmentOptions['approved'],
 		),
-		array('id_attach')
+		array('id_attach'),
+		1
 	);
-	$attachmentOptions['id'] = $smcFunc['db_insert_id']('{db_prefix}attachments', 'id_attach');
 
 	// Attachment couldn't be created.
 	if (empty($attachmentOptions['id']))
@@ -793,7 +797,7 @@ function createAttachment(&$attachmentOptions)
 			}
 
 			// To the database we go!
-			$smcFunc['db_insert']('',
+			$attachmentOptions['thumb'] = $smcFunc['db_insert']('',
 				'{db_prefix}attachments',
 				array(
 					'id_folder' => 'int', 'id_msg' => 'int', 'attachment_type' => 'int', 'filename' => 'string-255', 'file_hash' => 'string-40', 'fileext' => 'string-8',
@@ -803,9 +807,9 @@ function createAttachment(&$attachmentOptions)
 					$modSettings['currentAttachmentUploadDir'], (int) $attachmentOptions['post'], 3, $thumb_filename, $thumb_file_hash, $attachmentOptions['fileext'],
 					$thumb_size, $thumb_width, $thumb_height, $thumb_mime, (int) $attachmentOptions['approved'],
 				),
-				array('id_attach')
+				array('id_attach'),
+				1
 			);
-			$attachmentOptions['thumb'] = $smcFunc['db_insert_id']('{db_prefix}attachments', 'id_attach');
 
 			if (!empty($attachmentOptions['thumb']))
 			{
@@ -873,10 +877,8 @@ function assignAttachments($attachIDs = array(), $msgID = 0)
  */
 function parseAttachBBC($attachID = 0)
 {
-	global $board, $modSettings, $sourcedir, $context, $scripturl, $smcFunc;
+	global $board, $modSettings, $context, $scripturl, $smcFunc;
 
-	$attachContext = array();
-	$allAttachments = array();
 	$externalParse = false;
 
 	// Meh...
@@ -905,15 +907,14 @@ function parseAttachBBC($attachID = 0)
 		if (empty($allAttachments[0][$attachID]))
 			return 'attachments_no_data_loaded';
 
-		$attachContext = $allAttachments[0][$attachID];
 		$attachLoaded = loadAttachmentContext(0, $allAttachments);
 
 		$attachContext = $attachLoaded[$attachID];
 
 		// Fix the url to point out to showAvatar().
-		$attachContext['href'] = $scripturl . '?action=dlattach;attach=' . $attachID .';type=preview';
+		$attachContext['href'] = $scripturl . '?action=dlattach;attach=' . $attachID . ';type=preview';
 
-		$attachContext['link'] = '<a href="' . $scripturl . '?action=dlattach;attach=' . $attachID .';type=preview'. (empty($attachContext['is_image']) ? ';file' : '') .'">' . $smcFunc['htmlspecialchars']($attachContext['name']) . '</a>';
+		$attachContext['link'] = '<a href="' . $scripturl . '?action=dlattach;attach=' . $attachID . ';type=preview' . (empty($attachContext['is_image']) ? ';file' : '') . '">' . $smcFunc['htmlspecialchars']($attachContext['name']) . '</a>';
 
 		// Fix the thumbnail too, if the image has one.
 		if (!empty($attachContext['thumbnail']) && !empty($attachContext['thumbnail']['has_thumb']))
@@ -1078,7 +1079,7 @@ function getAttachsByMsg($msgID = 0)
 				LEFT JOIN {db_prefix}attachments AS thumb ON (thumb.id_attach = a.id_thumb)') . '
 				LEFT JOIN {db_prefix}messages AS m ON (m.id_msg = a.id_msg)
 			WHERE a.attachment_type = {int:attachment_type}
-				'. (!empty($msgID) ? 'AND a.id_msg = {int:message_id}' : '') .'',
+				'. (!empty($msgID) ? 'AND a.id_msg = {int:message_id}' : '') . '',
 			array(
 				'message_id' => $msgID,
 				'attachment_type' => 0,
@@ -1197,14 +1198,14 @@ function loadAttachmentContext($id_msg, $attachments)
 						$thumb_hash = getAttachmentFilename($thumb_filename, false, null, true);
 
 						// Add this beauty to the database.
-						$smcFunc['db_insert']('',
+						$attachment['id_thumb'] = $smcFunc['db_insert']('',
 							'{db_prefix}attachments',
 							array('id_folder' => 'int', 'id_msg' => 'int', 'attachment_type' => 'int', 'filename' => 'string', 'file_hash' => 'string', 'size' => 'int', 'width' => 'int', 'height' => 'int', 'fileext' => 'string', 'mime_type' => 'string'),
 							array($id_folder_thumb, $id_msg, 3, $thumb_filename, $thumb_hash, (int) $thumb_size, (int) $attachment['thumb_width'], (int) $attachment['thumb_height'], $thumb_ext, $thumb_mime),
-							array('id_attach')
+							array('id_attach'),
+							1
 						);
 						$old_id_thumb = $attachment['id_thumb'];
-						$attachment['id_thumb'] = $smcFunc['db_insert_id']('{db_prefix}attachments', 'id_attach');
 						if (!empty($attachment['id_thumb']))
 						{
 							$smcFunc['db_query']('', '

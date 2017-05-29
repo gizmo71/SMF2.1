@@ -4,7 +4,7 @@
  *
  * @package SMF
  * @author Simple Machines http://www.simplemachines.org
- * @copyright 2016 Simple Machines and individual contributors
+ * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
  * @version 2.1 Beta 3
@@ -94,7 +94,7 @@ function template_registration_form()
 			<div class="title_bar title_top">
 				<h3 class="titlebg">', $txt['required_info'], '</h3>
 			</div>
-			<div class="roundframe">
+			<div class="roundframe noup">
 				<fieldset>
 					<dl class="register_form">
 						<dt><strong><label for="smf_autov_username">', $txt['username'], ':</label></strong></dt>
@@ -150,7 +150,7 @@ function template_registration_form()
 							<strong', !empty($field['is_error']) ? ' class="red"' : '', '>', $field['name'], ':</strong>
 							<span class="smalltext">', $field['desc'], '</span>
 						</dt>
-						<dd>', str_replace('name="', 'tabindex="' . $context['tabindex']++ .'" name="', $field['input_html']), '</dd>';
+						<dd>', str_replace('name="', 'tabindex="' . $context['tabindex']++ . '" name="', $field['input_html']), '</dd>';
 
 		echo '
 					</dl>';
@@ -167,7 +167,7 @@ function template_registration_form()
 			<div class="title_bar title_top">
 				<h3 class="titlebg">', $txt['additional_information'], '</h3>
 			</div>
-			<div class="roundframe">
+			<div class="roundframe noup">
 				<fieldset>
 					<dl class="register_form" id="custom_group">';
 	}
@@ -283,7 +283,7 @@ function template_registration_form()
 			<div class="title_bar title_top">
 				<h3 class="titlebg">', $txt['verification'], '</h3>
 			</div>
-			<div class="roundframe">
+			<div class="roundframe noup">
 				<fieldset class="centertext">
 					', template_control_verification($context['visual_verification_id'], 'all'), '
 				</fieldset>
@@ -335,7 +335,7 @@ function template_after()
 			<div class="cat_bar">
 				<h3 class="catbg">', $context['title'], '</h3>
 			</div>
-			<div class="windowbg">
+			<div class="windowbg noup">
 				<p>', $context['description'], '</p>
 			</div>
 		</div>';
@@ -436,7 +436,7 @@ function template_verification_sound()
 		<meta charset="', $context['character_set'], '">
 		<title>', $txt['visual_verification_sound'], '</title>
 		<meta name="robots" content="noindex">
-		<link rel="stylesheet" href="', $settings['theme_url'], '/css/index', $context['theme_variant'], '.css', $modSettings['browser_cache'] ,'">
+		<link rel="stylesheet" href="', $settings['theme_url'], '/css/index', $context['theme_variant'], '.css', $modSettings['browser_cache'], '">
 		<style>';
 
 	// Just show the help text and a "close window" link.
@@ -542,7 +542,7 @@ function template_admin_register()
 							<strong', !empty($field['is_error']) ? ' class="red"' : '', '>', $field['name'], ':</strong>
 							<span class="smalltext">', $field['desc'], '</span>
 						</dt>
-						<dd>', str_replace('name="', 'tabindex="' . $context['tabindex']++ .'" name="', $field['input_html']), '</dd>';
+						<dd>', str_replace('name="', 'tabindex="' . $context['tabindex']++ . '" name="', $field['input_html']), '</dd>';
 
 	echo '
 						<dt>

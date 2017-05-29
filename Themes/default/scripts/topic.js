@@ -323,9 +323,6 @@ QuickModify.prototype.modifyMsg = function (iMessageId, blnShowSubject)
 	// At least NOW we're in edit mode
 	this.bInEditMode = true;
 
-	// Keep track of whether we want to show the subject
-	this.opt.bShowSubject = blnShowSubject;
-
 	// Send out the XMLhttp request to get more info
 	ajax_indicator(true);
 	sendXMLDocument.call(this, smf_prepareScriptUrl(smf_scripturl) + 'action=quotefast;quote=' + iMessageId + ';modify;xml;' + smf_session_var + '=' + smf_session_id, '', this.onMessageReceived);
@@ -436,11 +433,11 @@ QuickModify.prototype.modifySave = function (sSessionId, sSessionVar)
 	var i, x = new Array(),
 		oCaller = this,
 		formData = {
-			subject : document.forms.quickModForm['subject'].value.replace(/&#/g, "&#38;#").php_to8bit(),
-			message : document.forms.quickModForm['message'].value.replace(/&#/g, "&#38;#").php_to8bit(),
+			subject : document.forms.quickModForm['subject'].value.replace(/&#/g, "&#38;#"),
+			message : document.forms.quickModForm['message'].value.replace(/&#/g, "&#38;#"),
 			topic : parseInt(document.forms.quickModForm.elements['topic'].value),
 			msg : parseInt(document.forms.quickModForm.elements['msg'].value),
-			modify_reason : document.forms.quickModForm.elements['modify_reason'].value.replace(/&#/g, "&#38;#").php_to8bit()
+			modify_reason : document.forms.quickModForm.elements['modify_reason'].value.replace(/&#/g, "&#38;#")
 		};
 
 	// Send in the XMLhttp request and let's hope for the best.
@@ -485,7 +482,7 @@ QuickModify.prototype.onModifyDone = function (XMLDoc)
 
 		// Show new subject, but only if we want to...
 		var oSubject = message.getElementsByTagName('subject')[0];
-		var sSubjectText = this.opt.bshowSubject ? oSubject.childNodes[0].nodeValue.replace(/\$/g, '{&dollarfix;$}') : '';
+		var sSubjectText = oSubject.childNodes[0].nodeValue.replace(/\$/g, '{&dollarfix;$}');
 		var sTopSubjectText = oSubject.childNodes[0].nodeValue.replace(/\$/g, '{&dollarfix;$}');
 		this.sSubjectBuffer = this.opt.sTemplateSubjectNormal.replace(/%msg_id%/g, this.sCurMessageId.substr(4)).replace(/%subject%/, sSubjectText).replace(/\{&dollarfix;\$\}/g,'$');
 		setInnerHTML(this.oCurSubjectDiv, this.sSubjectBuffer);

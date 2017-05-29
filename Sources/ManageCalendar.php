@@ -7,7 +7,7 @@
  *
  * @package SMF
  * @author Simple Machines http://www.simplemachines.org
- * @copyright 2016 Simple Machines and individual contributors
+ * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
  * @version 2.1 Beta 3
@@ -338,6 +338,7 @@ function ModifyCalendarSettings($return_config = false)
 				array('permissions', 'calendar_edit_any'),
 			'',
 				// How many days to show on board index, and where to display events etc?
+				array('select', 'calendar_default_view', array('view_list' => $txt['setting_cal_view_list'], 'view_month' => $txt['setting_cal_view_month'], 'view_week' => $txt['setting_cal_view_week'])),
 				array('int', 'cal_days_for_index', 6, 'postinput' => $txt['days_word']),
 				array('select', 'cal_showholidays', array(0 => $txt['setting_cal_show_never'], 1 => $txt['setting_cal_show_cal'], 3 => $txt['setting_cal_show_index'], 2 => $txt['setting_cal_show_all'])),
 				array('select', 'cal_showbdays', array(0 => $txt['setting_cal_show_never'], 1 => $txt['setting_cal_show_cal'], 3 => $txt['setting_cal_show_index'], 2 => $txt['setting_cal_show_all'])),
@@ -355,8 +356,7 @@ function ModifyCalendarSettings($return_config = false)
 				array('int', 'cal_maxyear'),
 			'',
 				// Calendar spanning...
-				array('check', 'cal_allowspan'),
-				array('int', 'cal_maxspan', 6, 'postinput' => $txt['days_word']),
+				array('int', 'cal_maxspan', 6, 'postinput' => $txt['days_word'], 'subtext' => $txt['zero_for_no_limit']),
 			'',
 				// A comment is like a dog marking its territory. ;)
 				array('select', 'cal_highlight_events', array(0 => $txt['setting_cal_highlight_none'], 1 => $txt['setting_cal_highlight_mini'], 2 => $txt['setting_cal_highlight_main'], 3 => $txt['setting_cal_highlight_both'])),

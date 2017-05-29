@@ -8,7 +8,7 @@
  *
  * @package SMF
  * @author Simple Machines http://www.simplemachines.org
- * @copyright 2016 Simple Machines and individual contributors
+ * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
  * @version 2.1 Beta 3
@@ -79,6 +79,10 @@ function CalendarMain()
 				$_REQUEST['year'] = (int) $_REQUEST['year'];
 				$_REQUEST['month'] = (int) $_REQUEST['month'];
 
+				// We want month view.
+				if (empty($_GET['viewmonth']))
+					$_GET['viewmonth'] = true;
+
 				// And we definitely don't want weekly view.
 				unset ($_GET['viewweek']);
 
@@ -93,22 +97,80 @@ function CalendarMain()
 	// Set the page title to mention the calendar ;).
 	$context['page_title'] = $txt['calendar'];
 
-	// Is this a week view?
-	$context['view_week'] = isset($_GET['viewweek']);
+	// Ensure a default view is defined
+	if (empty($modSettings['calendar_default_view']))
+		$modSettings['calendar_default_view'] = 'view_list';
 
-	// Don't let search engines index weekly calendar pages.
-	if ($context['view_week'])
+	// What view do we want?
+	if (isset($_GET['viewweek']))
+		$context['calendar_view'] = 'view_week';
+	elseif (isset($_GET['viewmonth']))
+		$context['calendar_view'] = 'view_month';
+	elseif (isset($_GET['viewlist']))
+		$context['calendar_view'] = 'view_list';
+	else
+		$context['calendar_view'] = $modSettings['calendar_default_view'];
+
+	// Don't let search engines index the non-default calendar pages
+	if ($context['calendar_view'] !== $modSettings['calendar_default_view'])
 		$context['robot_no_index'] = true;
 
 	// Get the current day of month...
 	require_once($sourcedir . '/Subs-Calendar.php');
 	$today = getTodayInfo();
 
-	// If the month and year are not passed in, use today's date as a starting point.
+	// Need a start date for all views
+	if (!empty($_REQUEST['start_date']))
+	{
+		$start_parsed = date_parse($_REQUEST['start_date']);
+		if (empty($start_parsed['error_count']) && empty($start_parsed['warning_count']))
+		{
+			$_REQUEST['year'] = $start_parsed['year'];
+			$_REQUEST['month'] = $start_parsed['month'];
+			$_REQUEST['day'] = $start_parsed['day'];
+		}
+	}
+	$year = !empty($_REQUEST['year']) ? (int) $_REQUEST['year'] : $today['year'];
+	$month = !empty($_REQUEST['month']) ? (int) $_REQUEST['month'] : $today['month'];
+	$day = !empty($_REQUEST['day']) ? (int) $_REQUEST['day'] : $today['day'];
+
+	$start_object = checkdate($month, $day, $year) === true ? date_create(implode('-', array($year, $month, $day))) : date_create(implode('-', array($today['year'], $today['month'], $today['day'])));
+
+	// Need an end date for the list view
+	if (!empty($_REQUEST['end_date']))
+	{
+		$end_parsed = date_parse($_REQUEST['end_date']);
+		if (empty($end_parsed['error_count']) && empty($end_parsed['warning_count']))
+		{
+			$_REQUEST['end_year'] = $end_parsed['year'];
+			$_REQUEST['end_month'] = $end_parsed['month'];
+			$_REQUEST['end_day'] = $end_parsed['day'];
+		}
+	}
+	$end_year = !empty($_REQUEST['end_year']) ? (int) $_REQUEST['end_year'] : null;
+	$end_month = !empty($_REQUEST['end_month']) ? (int) $_REQUEST['end_month'] : null;
+	$end_day = !empty($_REQUEST['end_day']) ? (int) $_REQUEST['end_day'] : null;
+
+	$end_object = checkdate($end_month, $end_day, $end_year) === true ? date_create(implode('-', array($end_year, $end_month, $end_day))) : null;
+
+	if (empty($end_object) || $start_object >= $end_object)
+	{
+		$num_days_shown = empty($modSettings['cal_days_for_index']) || $modSettings['cal_days_for_index'] < 1 ? 1 : $modSettings['cal_days_for_index'];
+
+		$end_object = date_create(date_format($start_object, 'Y-m-d'));
+
+		date_add($end_object, date_interval_create_from_date_string($num_days_shown . ' days'));
+	}
+
 	$curPage = array(
-		'day' => isset($_REQUEST['day']) ? (int) $_REQUEST['day'] : $today['day'],
-		'month' => isset($_REQUEST['month']) ? (int) $_REQUEST['month'] : $today['month'],
-		'year' => isset($_REQUEST['year']) ? (int) $_REQUEST['year'] : $today['year']
+		'year' => date_format($start_object, 'Y'),
+		'month' => date_format($start_object, 'n'),
+		'day' => date_format($start_object, 'j'),
+		'start_date' => date_format($start_object, 'Y-m-d'),
+		'end_year' => date_format($end_object, 'Y'),
+		'end_month' => date_format($end_object, 'n'),
+		'end_day' => date_format($end_object, 'j'),
+		'end_date' => date_format($end_object, 'Y-m-d'),
 	);
 
 	// Make sure the year and month are in valid ranges.
@@ -117,11 +179,10 @@ function CalendarMain()
 	if ($curPage['year'] < $modSettings['cal_minyear'] || $curPage['year'] > $modSettings['cal_maxyear'])
 		fatal_lang_error('invalid_year', false);
 	// If we have a day clean that too.
-	if ($context['view_week'])
+	if ($context['calendar_view'] != 'view_month')
 	{
-		// Note $isValid is -1 < PHP 5.1
-		$isValid = mktime(0, 0, 0, $curPage['month'], $curPage['day'], $curPage['year']);
-		if ($curPage['day'] > 31 || !$isValid || $isValid == -1)
+		$isValid = checkdate($curPage['month'], $curPage['day'], $curPage['year']);
+		if (!$isValid)
 			fatal_lang_error('invalid_day', false);
 	}
 
@@ -144,7 +205,9 @@ function CalendarMain()
 	);
 
 	// Load up the main view.
-	if ($context['view_week'])
+	if ($context['calendar_view'] == 'view_list')
+		$context['calendar_grid_main'] = getCalendarList($curPage['start_date'], $curPage['end_date'], $calendarOptions);
+	elseif ($context['calendar_view'] == 'view_week')
 		$context['calendar_grid_main'] = getCalendarWeek($curPage['month'], $curPage['year'], $curPage['day'], $calendarOptions);
 	else
 		$context['calendar_grid_main'] = getCalendarGrid($curPage['month'], $curPage['year'], $calendarOptions);
@@ -178,7 +241,8 @@ function CalendarMain()
 	$context['blocks_disabled'] = !empty($modSettings['cal_disable_prev_next']) ? 1 : 0;
 
 	// Set the page title to mention the month or week, too
-	$context['page_title'] .= ' - ' . ($context['view_week'] ? $context['calendar_grid_main']['week_title'] : $txt['months'][$context['current_month']] . ' ' . $context['current_year']);
+	if ($context['calendar_view'] != 'view_list')
+		$context['page_title'] .= ' - ' . ($context['calendar_view'] == 'view_week' ? $context['calendar_grid_main']['week_title'] : $txt['months'][$context['current_month']] . ' ' . $context['current_year']);
 
 	// Load up the linktree!
 	$context['linktree'][] = array(
@@ -191,7 +255,7 @@ function CalendarMain()
 		'name' => $txt['months'][$context['current_month']] . ' ' . $context['current_year']
 	);
 	// If applicable, add the current week to the linktree.
-	if ($context['view_week'])
+	if ($context['calendar_view'] == 'view_week')
 		$context['linktree'][] = array(
 			'url' => $scripturl . '?action=calendar;viewweek;year=' . $context['current_year'] . ';month=' . $context['current_month'] . ';day=' . $context['current_day'],
 			'name' => $context['calendar_grid_main']['week_title'],
@@ -220,17 +284,30 @@ function CalendarMain()
 function CalendarPost()
 {
 	global $context, $txt, $user_info, $sourcedir, $scripturl;
-	global $modSettings, $topic, $smcFunc;
+	global $modSettings, $topic, $smcFunc, $settings;
 
 	// Well - can they?
 	isAllowedTo('calendar_post');
 
-	// We need this for all kinds of useful functions.
+	// We need these for all kinds of useful functions.
 	require_once($sourcedir . '/Subs-Calendar.php');
+	require_once($sourcedir . '/Subs.php');
 
 	// Cast this for safety...
 	if (isset($_REQUEST['eventid']))
 		$_REQUEST['eventid'] = (int) $_REQUEST['eventid'];
+
+	// We want a fairly compact version of the time, but as close as possible to the user's settings.
+	if (preg_match('~%[HkIlMpPrRSTX](?:[^%]*%[HkIlMpPrRSTX])*~', $user_info['time_format'], $matches) == 0 || empty($matches[0]))
+		$time_string = '%k:%M';
+	else
+		$time_string = str_replace(array('%I', '%H', '%S', '%r', '%R', '%T'), array('%l', '%k', '', '%l:%M %p', '%k:%M', '%l:%M'), $matches[0]);
+
+	$js_time_string = str_replace(
+		array('%H', '%k', '%I', '%l', '%M', '%p', '%P', '%r',      '%R',  '%S', '%T',    '%X'),
+		array('H',  'G',  'h',  'g',  'i',  'A',  'a',  'h:i:s A', 'H:i', 's',  'H:i:s', 'H:i:s'),
+		$time_string
+	);
 
 	// Submitting?
 	if (isset($_POST[$context['session_var']], $_REQUEST['eventid']))
@@ -259,9 +336,8 @@ function CalendarPost()
 				'board' => 0,
 				'topic' => 0,
 				'title' => $smcFunc['substr']($_REQUEST['evtitle'], 0, 100),
+				'location' => $smcFunc['substr']($_REQUEST['event_location'], 0, 255),
 				'member' => $user_info['id'],
-				'start_date' => sprintf('%04d-%02d-%02d', $_POST['year'], $_POST['month'], $_POST['day']),
-				'span' => isset($_POST['span']) && $_POST['span'] > 0 ? min((int) $modSettings['cal_maxspan'], (int) $_POST['span'] - 1) : 0,
 			);
 			insertEvent($eventOptions);
 		}
@@ -275,10 +351,8 @@ function CalendarPost()
 		{
 			$eventOptions = array(
 				'title' => $smcFunc['substr']($_REQUEST['evtitle'], 0, 100),
-				'span' => empty($modSettings['cal_allowspan']) || empty($_POST['span']) || $_POST['span'] == 1 || empty($modSettings['cal_maxspan']) || $_POST['span'] > $modSettings['cal_maxspan'] ? 0 : min((int) $modSettings['cal_maxspan'], (int) $_POST['span'] - 1),
-				'start_date' => strftime('%Y-%m-%d', mktime(0, 0, 0, (int) $_REQUEST['month'], (int) $_REQUEST['day'], (int) $_REQUEST['year'])),
+				'location' => $smcFunc['substr']($_REQUEST['event_location'], 0, 255),
 			);
-
 			modifyEvent($_REQUEST['eventid'], $eventOptions);
 		}
 
@@ -287,7 +361,25 @@ function CalendarPost()
 		));
 
 		// No point hanging around here now...
-		redirectexit($scripturl . '?action=calendar;month=' . $_POST['month'] . ';year=' . $_POST['year']);
+		if (isset($_POST['start_date']))
+		{
+			$d = date_parse($_POST['start_date']);
+			$year = $d['year'];
+			$month = $d['month'];
+		}
+		elseif (isset($_POST['start_datetime']))
+		{
+			$d = date_parse($_POST['start_datetime']);
+			$year = $d['year'];
+			$month = $d['month'];
+		}
+		else
+		{
+			$today = getdate();
+			$year = isset($_POST['year']) ? $_POST['year'] : $today['year'];
+			$month = isset($_POST['month']) ? $_POST['month'] : $today['mon'];
+		}
+		redirectexit($scripturl . '?action=calendar;month=' . $month . ';year=' . $year);
 	}
 
 	// If we are not enabled... we are not enabled.
@@ -301,19 +393,18 @@ function CalendarPost()
 	// New?
 	if (!isset($_REQUEST['eventid']))
 	{
-		$today = getdate();
-
 		$context['event'] = array(
 			'boards' => array(),
 			'board' => 0,
 			'new' => 1,
 			'eventid' => -1,
-			'year' => isset($_REQUEST['year']) ? $_REQUEST['year'] : $today['year'],
-			'month' => isset($_REQUEST['month']) ? $_REQUEST['month'] : $today['mon'],
-			'day' => isset($_REQUEST['day']) ? $_REQUEST['day'] : $today['mday'],
 			'title' => '',
-			'span' => 1,
+			'location' => '',
 		);
+
+		$eventDatetimes = getNewEventDatetimes();
+		$context['event'] = array_merge($context['event'], $eventDatetimes);
+
 		$context['event']['last_day'] = (int) strftime('%d', mktime(0, 0, 0, $context['event']['month'] == 12 ? 1 : $context['event']['month'] + 1, 0, $context['event']['month'] == 12 ? $context['event']['year'] + 1 : $context['event']['year']));
 	}
 	else
@@ -336,6 +427,31 @@ function CalendarPost()
 			isAllowedTo('calendar_edit_any');
 		elseif (!allowedTo('calendar_edit_any'))
 			isAllowedTo('calendar_edit_own');
+	}
+
+	// An all day event? Set up some nice defaults in case the user wants to change that
+	if ($context['event']['allday'] == true)
+	{
+		$context['event']['tz'] = getUserTimezone();
+		$context['event']['start_time'] = timeformat(time(), $time_string);
+		$context['event']['end_time'] = timeformat(time() + 3600, $time_string);
+	}
+	// Otherwise, just adjust these to look nice on the input form
+	else
+	{
+		$context['event']['start_time'] = $context['event']['start_time_orig'];
+		$context['event']['end_time'] = $context['event']['end_time_orig'];
+	}
+
+	// Need this so the user can select a timezone for the event.
+	$context['all_timezones'] = smf_list_timezones($context['event']['start_date']);
+	unset($context['all_timezones']['']);
+
+	// If the event's timezone is not in SMF's standard list of time zones, prepend it to the list
+	if (!in_array($context['event']['tz'], array_keys($context['all_timezones'])))
+	{
+		$d = date_create($context['event']['start_datetime'] . ' ' . $context['event']['tz']);
+		$context['all_timezones'] = array($context['event']['tz'] => fix_tz_abbrev($context['event']['tz'], date_format($d, 'T')) . ' - ' . $context['event']['tz'] . ' [UTC' . date_format($d, 'P') . ']') + $context['all_timezones'];
 	}
 
 	// Get list of boards that can be posted in.
@@ -366,12 +482,61 @@ function CalendarPost()
 	$context['linktree'][] = array(
 		'name' => $context['page_title'],
 	);
+
+	loadCSSFile('jquery-ui.datepicker.css', array('defer' => false), 'smf_datepicker');
+	loadCSSFile('jquery.timepicker.css', array('defer' => false), 'smf_timepicker');
+	loadJavaScriptFile('jquery-ui.datepicker.min.js', array('defer' => true), 'smf_datepicker');
+	loadJavaScriptFile('jquery.timepicker.min.js', array('defer' => true), 'smf_timepicker');
+	loadJavaScriptFile('datepair.min.js', array('defer' => true), 'smf_datepair');
+	addInlineJavaScript('
+	$("#allday").click(function(){
+		$("#start_time").attr("disabled", this.checked);
+		$("#end_time").attr("disabled", this.checked);
+		$("#tz").attr("disabled", this.checked);
+	});
+	$("#event_time_input .date_input").datepicker({
+		dateFormat: "yy-mm-dd",
+		autoSize: true,
+		isRTL: ' . ($context['right_to_left'] ? 'true' : 'false') . ',
+		constrainInput: true,
+		showAnim: "",
+		showButtonPanel: false,
+		minDate: "' . $modSettings['cal_minyear'] . '-01-01",
+		maxDate: "' . $modSettings['cal_maxyear'] . '-12-31",
+		yearRange: "' . $modSettings['cal_minyear'] . ':' . $modSettings['cal_maxyear'] . '",
+		hideIfNoPrevNext: true,
+		monthNames: ["' . implode('", "', $txt['months_titles']) . '"],
+		monthNamesShort: ["' . implode('", "', $txt['months_short']) . '"],
+		dayNames: ["' . implode('", "', $txt['days']) . '"],
+		dayNamesShort: ["' . implode('", "', $txt['days_short']) . '"],
+		dayNamesMin: ["' . implode('", "', $txt['days_short']) . '"],
+		prevText: "' . $txt['prev_month'] . '",
+		nextText: "' . $txt['next_month'] . '",
+	});
+	$(".time_input").timepicker({
+		timeFormat: "' . $js_time_string . '",
+		showDuration: true,
+		maxTime: "23:59:59",
+	});
+	var date_entry = document.getElementById("event_time_input");
+	var date_entry_pair = new Datepair(date_entry, {
+		timeClass: "time_input",
+		dateClass: "date_input",
+		parseDate: function (el) {
+		    var utc = new Date($(el).datepicker("getDate"));
+		    return utc && new Date(utc.getTime() + (utc.getTimezoneOffset() * 60000));
+		},
+		updateDate: function (el, v) {
+		    $(el).datepicker("setDate", new Date(v.getTime() - (v.getTimezoneOffset() * 60000)));
+		}
+	});
+	', true);
 }
 
 /**
  * This function offers up a download of an event in iCal 2.0 format.
  *
- * Follows the conventions in {@link http://tools.ietf.org/html/rfc5546 RFC5546}
+ * Follows the conventions in {@link https://tools.ietf.org/html/rfc5546 RFC5546}
  * Sets events as all day events since we don't have hourly events
  * Will honor and set multi day events
  * Sets a sequence number if the event has been modified
@@ -410,35 +575,44 @@ function iCalDownload()
 
 	// Format the dates.
 	$datestamp = date('Ymd\THis\Z', time());
-	$datestart = $event['year'] . ($event['month'] < 10 ? '0' . $event['month'] : $event['month']) . ($event['day'] < 10 ? '0' . $event['day'] : $event['day']);
+	$start_date = date_create($event['start_date'] . (isset($event['start_time']) ? ' ' . $event['start_time'] : '') . (isset($event['tz']) ? ' ' . $event['tz'] : ''));
+	$end_date = date_create($event['end_date'] . (isset($event['end_time']) ? ' ' . $event['end_time'] : '') . (isset($event['tz']) ? ' ' . $event['tz'] : ''));
 
-	// Do we have a event that spans several days?
-	if ($event['span'] > 1)
+	if (!empty($event['start_time']))
 	{
-		$dateend = strtotime($event['year'] . '-' . ($event['month'] < 10 ? '0' . $event['month'] : $event['month']) . '-' . ($event['day'] < 10 ? '0' . $event['day'] : $event['day']));
-		$dateend += ($event['span'] - 1) * 86400;
-		$dateend = date('Ymd', $dateend);
+		$datestart = date_format($start_date, 'Ymd\THis');
+		$dateend = date_format($end_date, 'Ymd\THis');
+	}
+	else
+	{
+		$datestart = date_format($start_date, 'Ymd');
+
+		date_add($end_date, date_interval_create_from_date_string('1 day'));
+		$dateend = date_format($end_date, 'Ymd');
 	}
 
 	// This is what we will be sending later
 	$filecontents = '';
 	$filecontents .= 'BEGIN:VCALENDAR' . "\n";
 	$filecontents .= 'METHOD:PUBLISH' . "\n";
-	$filecontents .= 'PRODID:-//SimpleMachines//SMF ' . (empty($forum_version) ? 2.0 : strtr($forum_version, array('SMF ' => ''))) . '//EN' . "\n";
+	$filecontents .= 'PRODID:-//SimpleMachines//SMF ' . (empty($forum_version) ? 2.1 : strtr($forum_version, array('SMF ' => ''))) . '//EN' . "\n";
 	$filecontents .= 'VERSION:2.0' . "\n";
 	$filecontents .= 'BEGIN:VEVENT' . "\n";
 	// @TODO - Should be the members email who created the event rather than $webmaster_email.
 	$filecontents .= 'ORGANIZER;CN="' . $event['realname'] . '":MAILTO:' . $webmaster_email . "\n";
 	$filecontents .= 'DTSTAMP:' . $datestamp . "\n";
-	$filecontents .= 'DTSTART;VALUE=DATE:' . $datestart . "\n";
+	$filecontents .= 'DTSTART' . (!empty($event['start_time']) ? ';TZID=' . $event['tz'] : ';VALUE=DATE') . ':' . $datestart . "\n";
 
-	// more than one day
-	if ($event['span'] > 1)
-		$filecontents .= 'DTEND;VALUE=DATE:' . $dateend . "\n";
+	// event has a duration
+	if ($event['start_iso_gmdate'] != $event['end_iso_gmdate'])
+		$filecontents .= 'DTEND' . (!empty($event['end_time']) ? ';TZID=' . $event['tz'] : ';VALUE=DATE') . ':' . $dateend . "\n";
 
 	// event has changed? advance the sequence for this UID
 	if ($event['sequence'] > 0)
 		$filecontents .= 'SEQUENCE:' . $event['sequence'] . "\n";
+
+	if (!empty($event['location']))
+		$filecontents .= 'LOCATION:' . str_replace(',', '\,', $event['location']) . "\n";
 
 	$filecontents .= 'SUMMARY:' . implode('', $title);
 	$filecontents .= 'UID:' . $event['eventid'] . '@' . str_replace(' ', '-', $mbname) . "\n";

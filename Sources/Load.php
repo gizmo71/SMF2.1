@@ -7,7 +7,7 @@
  *
  * @package SMF
  * @author Simple Machines http://www.simplemachines.org
- * @copyright 2016 Simple Machines and individual contributors
+ * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
  * @version 2.1 Beta 3
@@ -32,6 +32,9 @@ function reloadSettings()
 				'db_character_set' => $db_character_set,
 			)
 		);
+
+	// We need some caching support, maybe.
+	loadCacheAccelerator();
 
 	// Try to load it from the cache first; it'll never get cached if the setting is off.
 	if (($modSettings = cache_get_data('modSettings', 90)) == null)
@@ -73,17 +76,17 @@ function reloadSettings()
 
 	// Set a list of common functions.
 	$ent_list = empty($modSettings['disableEntityCheck']) ? '&(#\d{1,7}|quot|amp|lt|gt|nbsp);' : '&(#021|quot|amp|lt|gt|nbsp);';
-	$ent_check = empty($modSettings['disableEntityCheck']) ? function ($string)
+	$ent_check = empty($modSettings['disableEntityCheck']) ? function($string)
 		{
 			$string = preg_replace_callback('~(&#(\d{1,7}|x[0-9a-fA-F]{1,6});)~', 'entity_fix__callback', $string);
 			return $string;
-		} : function ($string)
+		} : function($string)
 		{
 			return $string;
 		};
-	$fix_utf8mb4 = function ($string) use ($utf8)
+	$fix_utf8mb4 = function($string) use ($utf8, $smcFunc)
 	{
-		if (!$utf8)
+		if (!$utf8 || $smcFunc['db_mb4'])
 			return $string;
 
 		$i = 0;
@@ -99,21 +102,21 @@ function reloadSettings()
 			}
 			elseif ($ord < 224)
 			{
-				$new_string .= $string[$i] . $string[$i+1];
+				$new_string .= $string[$i] . $string[$i + 1];
 				$i += 2;
 			}
 			elseif ($ord < 240)
 			{
-				$new_string .= $string[$i] . $string[$i+1] . $string[$i+2];
+				$new_string .= $string[$i] . $string[$i + 1] . $string[$i + 2];
 				$i += 3;
 			}
 			elseif ($ord < 248)
 			{
 				// Magic happens.
 				$val = (ord($string[$i]) & 0x07) << 18;
-				$val += (ord($string[$i+1]) & 0x3F) << 12;
-				$val += (ord($string[$i+2]) & 0x3F) << 6;
-				$val += (ord($string[$i+3]) & 0x3F);
+				$val += (ord($string[$i + 1]) & 0x3F) << 12;
+				$val += (ord($string[$i + 2]) & 0x3F) << 6;
+				$val += (ord($string[$i + 3]) & 0x3F);
 				$new_string .= '&#' . $val . ';';
 				$i += 4;
 			}
@@ -126,24 +129,24 @@ function reloadSettings()
 
 	// global array of anonymous helper functions, used mostly to properly handle multi byte strings
 	$smcFunc += array(
-		'entity_fix' => function ($string)
+		'entity_fix' => function($string)
 		{
 			$num = $string[0] === 'x' ? hexdec(substr($string, 1)) : (int) $string;
 			return $num < 0x20 || $num > 0x10FFFF || ($num >= 0xD800 && $num <= 0xDFFF) || $num === 0x202E || $num === 0x202D ? '' : '&#' . $num . ';';
 		},
-		'htmlspecialchars' => function ($string, $quote_style = ENT_COMPAT, $charset = 'ISO-8859-1') use ($ent_check, $utf8, $fix_utf8mb4)
+		'htmlspecialchars' => function($string, $quote_style = ENT_COMPAT, $charset = 'ISO-8859-1') use ($ent_check, $utf8, $fix_utf8mb4)
 		{
 			return $fix_utf8mb4($ent_check(htmlspecialchars($string, $quote_style, $utf8 ? 'UTF-8' : $charset)));
 		},
-		'htmltrim' => function ($string) use ($utf8, $space_chars, $ent_check)
+		'htmltrim' => function($string) use ($utf8, $space_chars, $ent_check)
 		{
 			return preg_replace('~^(?:[ \t\n\r\x0B\x00' . $space_chars . ']|&nbsp;)+|(?:[ \t\n\r\x0B\x00' . $space_chars . ']|&nbsp;)+$~' . ($utf8 ? 'u' : ''), '', $ent_check($string));
 		},
-		'strlen' => function ($string) use ($ent_list, $utf8, $ent_check)
+		'strlen' => function($string) use ($ent_list, $utf8, $ent_check)
 		{
 			return strlen(preg_replace('~' . $ent_list . ($utf8 ? '|.~u' : '~'), '_', $ent_check($string)));
 		},
-		'strpos' => function ($haystack, $needle, $offset = 0) use ($utf8, $ent_check, $modSettings)
+		'strpos' => function($haystack, $needle, $offset = 0) use ($utf8, $ent_check, $modSettings)
 		{
 			$haystack_arr = preg_split('~(&#' . (empty($modSettings['disableEntityCheck']) ? '\d{1,7}' : '021') . ';|&quot;|&amp;|&lt;|&gt;|&nbsp;|.)~' . ($utf8 ? 'u' : ''), $ent_check($haystack), -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
 
@@ -168,12 +171,12 @@ function reloadSettings()
 				return false;
 			}
 		},
-		'substr' => function ($string, $start, $length = null) use ($utf8, $ent_check, $modSettings)
+		'substr' => function($string, $start, $length = null) use ($utf8, $ent_check, $modSettings)
 		{
 			$ent_arr = preg_split('~(&#' . (empty($modSettings['disableEntityCheck']) ? '\d{1,7}' : '021') . ';|&quot;|&amp;|&lt;|&gt;|&nbsp;|.)~' . ($utf8 ? 'u' : '') . '', $ent_check($string), -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
 			return $length === null ? implode('', array_slice($ent_arr, $start)) : implode('', array_slice($ent_arr, $start, $length));
 		},
-		'strtolower' => $utf8 ? function ($string) use ($sourcedir)
+		'strtolower' => $utf8 ? function($string) use ($sourcedir)
 		{
 			if (!function_exists('mb_strtolower'))
 			{
@@ -183,7 +186,7 @@ function reloadSettings()
 
 			return mb_strtolower($string, 'UTF-8');
 		} : 'strtolower',
-		'strtoupper' => $utf8 ? function ($string)
+		'strtoupper' => $utf8 ? function($string)
 		{
 			global $sourcedir;
 
@@ -198,17 +201,17 @@ function reloadSettings()
 		'truncate' => function($string, $length) use ($utf8, $ent_check, $ent_list, &$smcFunc)
 		{
 			$string = $ent_check($string);
-			preg_match('~^(' . $ent_list . '|.){' . $smcFunc['strlen'](substr($string, 0, $length)) . '}~'.  ($utf8 ? 'u' : ''), $string, $matches);
+			preg_match('~^(' . $ent_list . '|.){' . $smcFunc['strlen'](substr($string, 0, $length)) . '}~' . ($utf8 ? 'u' : ''), $string, $matches);
 			$string = $matches[0];
 			while (strlen($string) > $length)
-				$string = preg_replace('~(?:' . $ent_list . '|.)$~'.  ($utf8 ? 'u' : ''), '', $string);
+				$string = preg_replace('~(?:' . $ent_list . '|.)$~' . ($utf8 ? 'u' : ''), '', $string);
 			return $string;
 		},
-		'ucfirst' => $utf8 ? function ($string) use (&$smcFunc)
+		'ucfirst' => $utf8 ? function($string) use (&$smcFunc)
 		{
 			return $smcFunc['strtoupper']($smcFunc['substr']($string, 0, 1)) . $smcFunc['substr']($string, 1);
 		} : 'ucfirst',
-		'ucwords' => $utf8 ? function ($string) use (&$smcFunc)
+		'ucwords' => $utf8 ? function($string) use (&$smcFunc)
 		{
 			$words = preg_split('~([\s\r\n\t]+)~', $string, -1, PREG_SPLIT_DELIM_CAPTURE);
 			for ($i = 0, $n = count($words); $i < $n; $i += 2)
@@ -218,8 +221,26 @@ function reloadSettings()
 	);
 
 	// Setting the timezone is a requirement for some functions.
-	if (isset($modSettings['default_timezone']))
+	if (isset($modSettings['default_timezone']) && in_array($modSettings['default_timezone'], timezone_identifiers_list()))
 		date_default_timezone_set($modSettings['default_timezone']);
+	else
+	{
+		// Get PHP's default timezone, if set
+		$ini_tz = ini_get('date.timezone');
+		if (!empty($ini_tz))
+			$modSettings['default_timezone'] = $ini_tz;
+		else
+			$modSettings['default_timezone'] = '';
+
+		// If date.timezone is unset, invalid, or just plain weird, make a best guess
+		if (!in_array($modSettings['default_timezone'], timezone_identifiers_list()))
+		{	
+			$server_offset = @mktime(0, 0, 0, 1, 1, 1970);
+			$modSettings['default_timezone'] = timezone_name_from_abbr('', $server_offset, 0);
+		}
+
+		date_default_timezone_set($modSettings['default_timezone']);
+	}
 
 	// Check the load averages?
 	if (!empty($modSettings['loadavg_enable']))
@@ -607,7 +628,7 @@ function loadUserSettings()
 		else
 		{
 			// !!! Compatibility.
-			$user_info['time_offset'] = empty($user_settings['time_offset']) ? 0 :$user_settings['time_offset'];
+			$user_info['time_offset'] = empty($user_settings['time_offset']) ? 0 : $user_settings['time_offset'];
 		}
 	}
 	// If the user is a guest, initialize all the critical user settings.
@@ -1258,13 +1279,16 @@ function loadMemberData($users, $is_name = false, $set = 'normal')
 		$new_loaded_ids = array();
 		while ($row = $smcFunc['db_fetch_assoc']($request))
 		{
+			// If the image proxy is enabled, we still want the original URL when they're editing the profile...
+			$row['avatar_original'] = $row['avatar'];
+
 			// Take care of proxying avatar if required, do this here for maximum reach
 			if ($image_proxy_enabled && !empty($row['avatar']) && stripos($row['avatar'], 'http://') !== false)
 				$row['avatar'] = $boardurl . '/proxy.php?request=' . urlencode($row['avatar']) . '&hash=' . md5($row['avatar'] . $image_proxy_secret);
 
-			if ( isset($row['member_ip']) )
+			if (isset($row['member_ip']))
 				$row['member_ip'] = inet_dtop($row['member_ip']);
-			if ( isset($row['member_ip2']) )
+			if (isset($row['member_ip2']))
 				$row['member_ip2'] = inet_dtop($row['member_ip2']);
 			$new_loaded_ids[] = $row['id_member'];
 			$loaded_ids[] = $row['id_member'];
@@ -1277,7 +1301,7 @@ function loadMemberData($users, $is_name = false, $set = 'normal')
 	if (!empty($new_loaded_ids) && $set !== 'minimal')
 	{
 		$request = $smcFunc['db_query']('', '
-			SELECT *
+			SELECT id_member, variable, value
 			FROM {db_prefix}themes
 			WHERE id_member IN ({array_int:loaded_ids})',
 			array(
@@ -1412,7 +1436,7 @@ function loadMemberContext($user, $display_custom_fields = false)
 		'name' => $profile['real_name'],
 		'id' => $profile['id_member'],
 		'href' => $scripturl . '?action=profile;u=' . $profile['id_member'],
-		'link' => '<a href="' . $scripturl . '?action=profile;u=' . $profile['id_member'] . '" title="' . $txt['profile_of'] . ' ' . $profile['real_name'] . '" '. (!empty($modSettings['onlineEnable']) ? 'class="pm_icon"' : '').'>' . $profile['real_name'] . '</a>',
+		'link' => '<a href="' . $scripturl . '?action=profile;u=' . $profile['id_member'] . '" title="' . $txt['profile_of'] . ' ' . $profile['real_name'] . '" ' . (!empty($modSettings['onlineEnable']) ? 'class="pm_icon"' : '') . '>' . $profile['real_name'] . '</a>',
 		'email' => $profile['email_address'],
 		'show_email' => !$user_info['is_guest'] && ($user_info['id'] == $profile['id_member'] || allowedTo('moderate_forum')),
 		'registered' => empty($profile['date_registered']) ? $txt['not_applicable'] : timeformat($profile['date_registered']),
@@ -1427,9 +1451,9 @@ function loadMemberContext($user, $display_custom_fields = false)
 			$loadedLanguages = getLanguages();
 
 		$memberContext[$user] += array(
-			'username_color' => '<span '. (!empty($profile['member_group_color']) ? 'style="color:'. $profile['member_group_color'] .';"' : '') .'>'. $profile['member_name'] .'</span>',
-			'name_color' => '<span '. (!empty($profile['member_group_color']) ? 'style="color:'. $profile['member_group_color'] .';"' : '') .'>'. $profile['real_name'] .'</span>',
-			'link_color' => '<a href="' . $scripturl . '?action=profile;u=' . $profile['id_member'] . '" title="' . $txt['profile_of'] . ' ' . $profile['real_name'] . '" '. (!empty($profile['member_group_color']) ? 'style="color:'. $profile['member_group_color'] .';"' : '') .'>' . $profile['real_name'] . '</a>',
+			'username_color' => '<span ' . (!empty($profile['member_group_color']) ? 'style="color:' . $profile['member_group_color'] . ';"' : '') . '>' . $profile['member_name'] . '</span>',
+			'name_color' => '<span ' . (!empty($profile['member_group_color']) ? 'style="color:' . $profile['member_group_color'] . ';"' : '') . '>' . $profile['real_name'] . '</span>',
+			'link_color' => '<a href="' . $scripturl . '?action=profile;u=' . $profile['id_member'] . '" title="' . $txt['profile_of'] . ' ' . $profile['real_name'] . '" ' . (!empty($profile['member_group_color']) ? 'style="color:' . $profile['member_group_color'] . ';"' : '') . '>' . $profile['real_name'] . '</a>',
 			'is_buddy' => $profile['buddy'],
 			'is_reverse_buddy' => in_array($user_info['id'], $buddy_list),
 			'buddies' => $buddy_list,
@@ -1499,7 +1523,7 @@ function loadMemberContext($user, $display_custom_fields = false)
 		if (!empty($image))
 			$memberContext[$user]['avatar'] = array(
 				'name' => $profile['avatar'],
-				'image' => '<img class="avatar" src="' . $image . '" alt="avatar_'. $profile['member_name'].'">',
+				'image' => '<img class="avatar" src="' . $image . '" alt="avatar_' . $profile['member_name'] . '">',
 				'href' => $image,
 				'url' => $image,
 			);
@@ -2129,17 +2153,17 @@ function loadTheme($id_theme = 0, $initialize = true)
 
 	// Add the JQuery library to the list of files to load.
 	if (isset($modSettings['jquery_source']) && $modSettings['jquery_source'] == 'cdn')
-		loadJavaScriptFile('https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js', array('external' => true), 'smf_jquery');
+		loadJavaScriptFile('https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js', array('external' => true), 'smf_jquery');
 
 	elseif (isset($modSettings['jquery_source']) && $modSettings['jquery_source'] == 'local')
-		loadJavaScriptFile('jquery-2.1.4.min.js', array('seed' => false), 'smf_jquery');
+		loadJavaScriptFile('jquery-3.1.1.min.js', array('seed' => false), 'smf_jquery');
 
 	elseif (isset($modSettings['jquery_source'], $modSettings['jquery_custom']) && $modSettings['jquery_source'] == 'custom')
-		loadJavaScriptFile($modSettings['jquery_custom'], array(), 'smf_jquery');
+		loadJavaScriptFile($modSettings['jquery_custom'], array('external' => true), 'smf_jquery');
 
 	// Auto loading? template_javascript() will take care of the local half of this.
 	else
-		loadJavaScriptFile('https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js', array('external' => true), 'smf_jquery');
+		loadJavaScriptFile('https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js', array('external' => true), 'smf_jquery');
 
 	// Queue our JQuery plugins!
 	loadJavaScriptFile('smf_jquery_plugins.js', array('minimize' => true), 'smf_jquery_plugins');
@@ -2306,7 +2330,6 @@ function loadTemplate($template_name, $style_sheets = array(), $fatal = true)
 		return false;
 }
 
-
 /**
  * Load a sub-template.
  * What it does:
@@ -2439,7 +2462,7 @@ function addInlineCss($css)
 
 /**
  * Add a Javascript file for output later
-
+ *
  * @param string $filename The name of the file to load
  * @param array $params An array of parameter info
  * Keys are the following:
@@ -2627,6 +2650,10 @@ function loadLanguage($template_name, $lang = '', $fatal = true, $force_reload =
 				// Note that we found it.
 				$found = true;
 
+				// setlocale is required for basename() & pathinfo() to work properly on the selected language
+				if (!empty($txt['lang_locale']) && !empty($modSettings['global_character_set']))
+					setlocale(LC_CTYPE, $txt['lang_locale'] . '.' . $modSettings['global_character_set']);
+				
 				break;
 			}
 		}
@@ -2767,15 +2794,14 @@ function getBoardParents($id_parent)
  * It will try to choose only utf8 or non-utf8 languages.
  *
  * @param bool $use_cache Whether or not to use the cache
- * @param bool $favor_utf8 Whether or not to favor UTF-8 files
  * @return array An array of information about available languages
  */
-function getLanguages($use_cache = true, $favor_utf8 = true)
+function getLanguages($use_cache = true)
 {
 	global $context, $smcFunc, $settings, $modSettings;
 
 	// Either we don't use the cache, or its expired.
-	if (!$use_cache || ($context['languages'] = cache_get_data('known_languages' . ($favor_utf8 ? '' : '_all'), !empty($modSettings['cache_enable']) && $modSettings['cache_enable'] < 1 ? 86400 : 3600)) == null)
+	if (!$use_cache || ($context['languages'] = cache_get_data('known_languages', !empty($modSettings['cache_enable']) && $modSettings['cache_enable'] < 1 ? 86400 : 3600)) == null)
 	{
 		// If we don't have our ucwords function defined yet, let's load the settings data.
 		if (empty($smcFunc['ucwords']))
@@ -2814,8 +2840,8 @@ function getLanguages($use_cache = true, $favor_utf8 = true)
 			$dir = dir($language_dir);
 			while ($entry = $dir->read())
 			{
-				// Look for the index language file....
-				if (!preg_match('~^index\.(.+)\.php$~', $entry, $matches))
+				// Look for the index language file... For good measure skip any "index.language-utf8.php" files
+				if (!preg_match('~^index\.(.+[^-utf8])\.php$~', $entry, $matches))
 					continue;
 
 				if (!empty($langList) && !empty($langList[$matches[1]]))
@@ -2826,7 +2852,7 @@ function getLanguages($use_cache = true, $favor_utf8 = true)
 					$langName = $smcFunc['ucwords'](strtr($matches[1], array('_' => ' ')));
 
 					// Get the line we need.
-					$fp = @fopen($language_dir .'/'. $entry);
+					$fp = @fopen($language_dir . '/' . $entry);
 
 					// Yay!
 					if ($fp)
@@ -2857,8 +2883,6 @@ function getLanguages($use_cache = true, $favor_utf8 = true)
 					'filename' => $matches[1],
 					'location' => $language_dir . '/index.' . $matches[1] . '.php',
 				);
-
-				$indexFile = '';
 			}
 			$dir->close();
 		}
@@ -2867,17 +2891,9 @@ function getLanguages($use_cache = true, $favor_utf8 = true)
 		if (empty($langList))
 			updateSettings(array('langList' => json_encode($catchLang)));
 
-		// Favoring UTF8? Then prevent us from selecting non-UTF8 versions.
-		if ($favor_utf8)
-		{
-			foreach ($context['languages'] as $lang)
-				if (substr($lang['filename'], strlen($lang['filename']) - 5, 5) != '-utf8' && isset($context['languages'][$lang['filename'] . '-utf8']))
-					unset($context['languages'][$lang['filename']]);
-		}
-
 		// Let's cash in on this deal.
 		if (!empty($modSettings['cache_enable']))
-			cache_put_data('known_languages' . ($favor_utf8 ? '' : '_all'), $context['languages'], !empty($modSettings['cache_enable']) && $modSettings['cache_enable'] < 1 ? 86400 : 3600);
+			cache_put_data('known_languages', $context['languages'], !empty($modSettings['cache_enable']) && $modSettings['cache_enable'] < 1 ? 86400 : 3600);
 	}
 
 	return $context['languages'];
@@ -3186,6 +3202,61 @@ function loadDatabase()
 }
 
 /**
+ * Try to load up a supported caching method. This is saved in $cacheAPI if we are not overriding it.
+ *
+ * @param string $overrideCache Try to use a different cache method other than that defined in $cache_accelerator.
+ * @param string $fallbackSMF Use the default SMF method if the accelerator fails.
+ * @return object A object of $cacheAPI.
+*/
+function loadCacheAccelerator($overrideCache = null, $fallbackSMF = true)
+{
+	global $sourcedir, $cacheAPI, $cache_accelerator;
+
+	// Not overriding this and we have a cacheAPI, send it back.
+	if (empty($overrideCache) && is_object($cacheAPI))
+		return $cacheAPI;
+	elseif (is_null($cacheAPI))
+		$cacheAPI = false;
+
+	// Make sure our class is in session.
+	require_once($sourcedir . '/Class-CacheAPI.php');
+
+	// What accelerator we are going to try.
+	$tryAccelerator = !empty($overrideCache) ? $overrideCache : !empty($cache_accelerator) ? $cache_accelerator : 'smf';
+	$tryAccelerator = strtolower($tryAccelerator);
+
+	// Do some basic tests.
+	if (file_exists($sourcedir . '/CacheAPI-' . $tryAccelerator . '.php'))
+	{
+		require_once($sourcedir . '/CacheAPI-' . $tryAccelerator . '.php');
+
+		$cache_class_name = $tryAccelerator . '_cache';
+		$testAPI = new $cache_class_name();
+
+		// No Support?  NEXT!
+		if (!$testAPI->isSupported())
+		{
+			// Can we save ourselves?
+			if (!empty($fallbackSMF) && is_null($overrideCache) && $tryAccelerator != 'smf')
+				return loadCacheAccelerator(null, false);
+			return false;
+		}
+
+		// Connect up to the accelerator.
+		$testAPI->connect();
+
+		// Don't set this if we are overriding the cache.
+		if (is_null($overrideCache))
+		{
+			$cacheAPI = $testAPI;
+			return $cacheAPI;
+		}
+		else
+			return $testAPI;
+	}
+}
+
+/**
  * Try to retrieve a cache entry. On failure, call the appropriate function.
  *
  * @param string $key The key for this entry
@@ -3236,10 +3307,10 @@ function cache_quick_get($key, $file, $function, $params, $level = 1)
  * - It may "miss" so shouldn't be depended on
  * - Uses the cache engine chosen in the ACP and saved in settings.php
  * - It supports:
- *	 Xcache: http://xcache.lighttpd.net/wiki/XcacheApi
- *	 memcache: http://www.php.net/memcache
- *	 APC: http://www.php.net/apc
- *   APCu: http://www.php.net/book.apcu
+ *	 Xcache: https://xcache.lighttpd.net/wiki/XcacheApi
+ *	 memcache: https://php.net/memcache
+ *	 APC: https://php.net/apc
+ *   APCu: https://php.net/book.apcu
  *	 Zend: http://files.zend.com/help/Zend-Platform/output_cache_functions.htm
  *	 Zend: http://files.zend.com/help/Zend-Platform/zend_cache_functions.htm
  *
@@ -3249,11 +3320,10 @@ function cache_quick_get($key, $file, $function, $params, $level = 1)
  */
 function cache_put_data($key, $value, $ttl = 120)
 {
-	global $boardurl, $modSettings, $memcached;
-	global $cache_hits, $cache_count, $db_show_debug, $cachedir;
-	global $cache_accelerator, $cache_enable, $cache_memcached;
+	global $boardurl, $modSettings, $cache_enable, $cacheAPI;
+	global $cache_hits, $cache_count, $db_show_debug;
 
-	if (empty($cache_enable))
+	if (empty($cache_enable) || empty($cacheAPI))
 		return;
 
 	$cache_count = isset($cache_count) ? $cache_count + 1 : 1;
@@ -3263,90 +3333,15 @@ function cache_put_data($key, $value, $ttl = 120)
 		$st = microtime();
 	}
 
-	$key = md5($boardurl . filemtime($cachedir . '/' . 'index.php')) . '-SMF-' . strtr($key, ':/', '-_');
+	// The API will handle the rest.
 	$value = $value === null ? null : json_encode($value);
-
-	switch ($cache_accelerator)
-	{
-		case 'memcached':
-			// The simple yet efficient memcached.
-			if ((function_exists('memcached_set') || function_exists('memcache_set')) && isset($cache_memcached) && trim($cache_memcached) != '')
-			{
-				// Not connected yet?
-				if (empty($memcached))
-					get_memcached_server();
-				if (!$memcached)
-					return;
-
-				memcache_set($memcached, $key, $value, 0, $ttl);
-			}
-			break;
-		case 'apc':
-			// Alternative PHP Cache, ahoy!
-			if (function_exists('apc_store'))
-			{
-				// An extended key is needed to counteract a bug in APC.
-				if ($value === null)
-					apc_delete($key . 'smf');
-				else
-					apc_store($key . 'smf', $value, $ttl);
-			}
-			break;
-		case 'apcu':
-			// APC User Cache
-			if (function_exists('apcu_store'))
-			{
-				// Not sure if this bug exists in APCu or not?
-				if ($value === null)
-					apcu_delete($key . 'smf');
-				else
-					apcu_store($key . 'smf', $value, $ttl);
-			}
-			break;
-		case 'zend':
-			// Zend Platform/ZPS/etc.
-			if (function_exists('zend_shm_cache_store'))
-				zend_shm_cache_store('SMF::' . $key, $value, $ttl);
-			elseif (function_exists('output_cache_put'))
-				output_cache_put($key, $value);
-			break;
-		case 'xcache':
-			if (function_exists('xcache_set') && ini_get('xcache.var_size') > 0)
-			{
-				if ($value === null)
-					xcache_unset($key);
-				else
-					xcache_set($key, $value, $ttl);
-			}
-			break;
-		default:
-			// Otherwise custom cache?
-			if ($value === null)
-				@unlink($cachedir . '/data_' . $key . '.php');
-			else
-			{
-				$cache_data = '<' . '?' . 'php if (!defined(\'SMF\')) die; if (' . (time() + $ttl) . ' < time()) $expired = true; else{$expired = false; $value = \'' . addcslashes($value, '\\\'') . '\';}' . '?' . '>';
-
-				// Write out the cache file, check that the cache write was successful; all the data must be written
-				// If it fails due to low diskspace, or other, remove the cache file
-				if (file_put_contents($cachedir . '/data_' . $key . '.php', $cache_data, LOCK_EX) !== strlen($cache_data))
-					@unlink($cachedir . '/data_' . $key . '.php');
-			}
-			break;
-	}
+	$cacheAPI->putData($key, $value, $ttl);
 
 	if (function_exists('call_integration_hook'))
 		call_integration_hook('cache_put_data', array(&$key, &$value, &$ttl));
 
 	if (isset($db_show_debug) && $db_show_debug === true)
 		$cache_hits[$cache_count]['t'] = array_sum(explode(' ', microtime())) - array_sum(explode(' ', $st));
-
-	// Invalidate the opcode cache
-	if (function_exists('opcache_invalidate'))
-   		opcache_invalidate($cachedir . '/data_' . $key . '.php', true);
-
-	if (function_exists('apc_delete_file'))
-   		@apc_delete_file($cachedir . '/data_' . $key . '.php');
 }
 
 /**
@@ -3360,11 +3355,10 @@ function cache_put_data($key, $value, $ttl = 120)
  */
 function cache_get_data($key, $ttl = 120)
 {
-	global $boardurl, $modSettings, $memcached;
-	global $cache_hits, $cache_count, $cache_misses, $cache_count_misses, $db_show_debug, $cachedir;
-	global $cache_accelerator, $cache_enable, $cache_memcached;
+	global $boardurl, $modSettings, $cache_enable, $cacheAPI;
+	global $cache_hits, $cache_count, $cache_misses, $cache_count_misses, $db_show_debug;
 
-	if (empty($cache_enable))
+	if (empty($cache_enable) || empty($cacheAPI))
 		return;
 
 	$cache_count = isset($cache_count) ? $cache_count + 1 : 1;
@@ -3375,66 +3369,8 @@ function cache_get_data($key, $ttl = 120)
 		$original_key = $key;
 	}
 
-	$key = md5($boardurl . filemtime($cachedir . '/' . 'index.php')) . '-SMF-' . strtr($key, ':/', '-_');
-
-	switch ($cache_accelerator)
-	{
-		case 'memcached':
-			// Okay, let's go for it memcached!
-			if ((function_exists('memcache_get') || function_exists('memcached_get')) && isset($cache_memcached) && trim($cache_memcached) != '')
-			{
-				// Not connected yet?
-				if (empty($memcached))
-					get_memcached_server();
-				if (!$memcached)
-				{
-					$cache_misses_count = isset($cache_misses) ? $cache_misses + 1 : 1;
-					$value = null;
-				}
-				else
-					$value = (function_exists('memcache_get')) ? memcache_get($memcached, $key) : memcached_get($memcached, $key);
-			}
-			break;
-		case 'apc':
-			// This is the free APC from PECL.
-			if (function_exists('apc_fetch'))
-				$value = apc_fetch($key . 'smf');
-			break;
-		case 'apcu':
-			// APC User Cache. A continuation of the now-unsupported APC but without opcode cache
-			if (function_exists('apcu_fetch'))
-				$value = apcu_fetch($key . 'smf');
-			break;
-		case 'zend':
-			// Zend's pricey stuff.
-			if (function_exists('zend_shm_cache_fetch'))
-				$value = zend_shm_cache_fetch('SMF::' . $key);
-			elseif (function_exists('output_cache_get'))
-				$value = output_cache_get($key, $ttl);
-			break;
-		case 'xcache':
-			if (function_exists('xcache_get') && ini_get('xcache.var_size') > 0)
-				$value = xcache_get($key);
-			break;
-		default:
-			// Otherwise it's SMF data!
-			if (file_exists($cachedir . '/data_' . $key . '.php') && filesize($cachedir . '/data_' . $key . '.php') > 10)
-			{
-				// Work around Zend's opcode caching (PHP 5.5+), they would cache older files for a couple of seconds
-				// causing newer files to take effect a while later.
-				if (function_exists('opcache_invalidate'))
-					opcache_invalidate($cachedir . '/data_' . $key . '.php', true);
-
-				// php will cache file_exists et all, we can't 100% depend on its results so proceed with caution
-				@include($cachedir . '/data_' . $key . '.php');
-				if (!empty($expired) && isset($value))
-				{
-					@unlink($cachedir . '/data_' . $key . '.php');
-					unset($value);
-				}
-			}
-			break;
-	}
+	// Ask the API to get the data.
+	$value = $cacheAPI->getData($key, $ttl);
 
 	if (isset($db_show_debug) && $db_show_debug === true)
 	{
@@ -3443,7 +3379,7 @@ function cache_get_data($key, $ttl = 120)
 
 		if (empty($value))
 		{
-			if (!isset($cache_misses))
+			if (!is_array($cache_misses))
 				$cache_misses = array();
 
 			$cache_count_misses = isset($cache_count_misses) ? $cache_count_misses + 1 : 1;
@@ -3458,56 +3394,30 @@ function cache_get_data($key, $ttl = 120)
 }
 
 /**
- * Get memcache servers.
+ * Empty out the cache in use as best it can
  *
- * - This function is used by cache_get_data() and cache_put_data().
- * - It attempts to connect to a random server in the cache_memcached setting.
- * - It recursively calls itself up to $level times.
+ * It may only remove the files of a certain type (if the $type parameter is given)
+ * Type can be user, data or left blank
+ * 	- user clears out user data
+ *  - data clears out system / opcode data
+ *  - If no type is specified will perform a complete cache clearing
+ * For cache engines that do not distinguish on types, a full cache flush will be done
  *
- * @param int $level The maximum number of times to call this function recursively
+ * @param string $type The cache type ('memcached', 'apc', 'xcache', 'zend' or something else for SMF's file cache)
  */
-function get_memcached_server($level = 3)
+function clean_cache($type = '')
 {
-	global $memcached, $db_persist, $cache_memcached;
+	global $cacheAPI;
 
-	$servers = explode(',', $cache_memcached);
-	$server = trim($servers[array_rand($servers)]);
+	// If we can't get to the API, can't do this.
+	if (empty($cacheAPI))
+		return;
 
-	$port = 0;
+	// Ask the API to do the heavy lifting. cleanCache also calls invalidateCache to be sure.
+	$cacheAPI->cleanCache($type);
 
-	// Normal host names do not contain slashes, while e.g. unix sockets do. Assume alternative transport pipe with port 0.
-	if(strpos($server,'/') !== false)
-		$host = $server;
-	else
-	{
-		$server = explode(':', $server);
-		$host = $server[0];
-		$port = isset($server[1]) ? $server[1] : 11211;
-	}
-
-	$cache = (function_exists('memcache_get')) ? 'memcache' : ((function_exists('memcached_get') ? 'memcached' : ''));
-
-	// Don't try more times than we have servers!
-	$level = min(count($servers), $level);
-
-	// Don't wait too long: yes, we want the server, but we might be able to run the query faster!
-	if (empty($db_persist))
-	{
-		if ($cache === 'memcached')
-			$memcached = memcached_connect($host, $port);
-		if ($cache === 'memcache')
-			$memcached = memcache_connect($host, $port);
-	}
-	else
-	{
-		if ($cache === 'memcached')
-			$memcached = memcached_pconnect($host, $port);
-		if ($cache === 'memcache')
-			$memcached = memcache_pconnect($host, $port);
-	}
-
-	if (!$memcached && $level > 0)
-		get_memcached_server($level - 1);
+	call_integration_hook('integrate_clean_cache');
+	clearstatcache();
 }
 
 /**

@@ -12,7 +12,7 @@
  *
  * @package SMF
  * @author Simple Machines http://www.simplemachines.org
- * @copyright 2016 Simple Machines and individual contributors
+ * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
  * @version 2.1 Beta 3
@@ -52,7 +52,7 @@ function downloadAvatar($url, $memID, $max_width, $max_height)
 
 	$id_folder = 1;
 	$avatar_hash = '';
-	$smcFunc['db_insert']('',
+	$attachID = $smcFunc['db_insert']('',
 		'{db_prefix}attachments',
 		array(
 			'id_member' => 'int', 'attachment_type' => 'int', 'filename' => 'string-255', 'file_hash' => 'string-255', 'fileext' => 'string-8', 'size' => 'int',
@@ -62,9 +62,9 @@ function downloadAvatar($url, $memID, $max_width, $max_height)
 			$memID, 1, $destName, $avatar_hash, $ext, 1,
 			$id_folder,
 		),
-		array('id_attach')
+		array('id_attach'),
+		1
 	);
-	$attachID = $smcFunc['db_insert_id']('{db_prefix}attachments', 'id_attach');
 
 	// Retain this globally in case the script wants it.
 	$modSettings['new_avatar_data'] = array(
@@ -211,8 +211,9 @@ function checkImageContents($fileName, $extensiveCheck = false)
 		// Though not exhaustive lists, better safe than sorry.
 		if (!empty($extensiveCheck))
 		{
-			// Paranoid check. Some like it that way.
-			if (preg_match('~(iframe|\\<\\?|\\<%|html|eval|body|script\W|[CF]WS[\x01-\x0C])~i', $prev_chunk . $cur_chunk) === 1)
+			// Paranoid check.  Use this if you have reason to distrust your host's security config.
+			// Will result in MANY false positives, and is not suitable for photography sites.
+			if (preg_match('~(iframe|\\<\\?|\\<%|html|eval|body|script\W|(?-i)[CFZ]WS[\x01-\x0E])~i', $prev_chunk . $cur_chunk) === 1)
 			{
 				fclose($fp);
 				return false;
@@ -220,8 +221,9 @@ function checkImageContents($fileName, $extensiveCheck = false)
 		}
 		else
 		{
-			// Check for potential infection
-			if (preg_match('~(iframe|(?<!cellTextIs)html|eval|body|script\W|[CF]WS[\x01-\x0C])~i', $prev_chunk . $cur_chunk) === 1)
+			// Check for potential infection - focus on clues for inline php & flash.
+			// Will result in significantly fewer false positives than the paranoid check.
+			if (preg_match('~(\\<\\?php\s|(?-i)[CFZ]WS[\x01-\x0E])~i', $prev_chunk . $cur_chunk) === 1)
 			{
 				fclose($fp);
 				return false;

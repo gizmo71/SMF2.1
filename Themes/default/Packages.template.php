@@ -4,7 +4,7 @@
  *
  * @package SMF
  * @author Simple Machines http://www.simplemachines.org
- * @copyright 2016 Simple Machines and individual contributors
+ * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
  * @version 2.1 Beta 3
@@ -103,8 +103,9 @@ function template_view_package()
 	// Are there data changes to be removed?
 	if ($context['uninstalling'] && !empty($context['database_changes']))
 	{
+		/* This is really a special case so we're adding style inline */
 		echo '
-			<div class="windowbg2 noup">
+			<div class="windowbg2" style="margin: 0; border-radius: 0;">
 				<label for="do_db_changes"><input type="checkbox" name="do_db_changes" id="do_db_changes" class="input_check">', $txt['package_db_uninstall'], '</label> [<a href="#" onclick="return swap_database_changes();">', $txt['package_db_uninstall_details'], '</a>]
 				<div id="db_changes_div">
 					', $txt['package_db_uninstall_actions'], ':
@@ -789,7 +790,7 @@ function template_servers()
 								<strong>' . $txt['serverurl'] . ':</strong>
 							</dt>
 							<dd>
-								<input type="text" name="serverurl" size="44" value="http://" class="input_text">
+								<input type="text" name="serverurl" size="44" value="https://" class="input_text">
 							</dd>
 						</dl>
 						<div class="righttext">
@@ -806,7 +807,7 @@ function template_servers()
 								<strong>' . $txt['serverurl'] . ':</strong>
 							</dt>
 							<dd>
-								<input type="text" name="package" size="44" value="http://" class="input_text">
+								<input type="text" name="package" size="44" value="https://" class="input_text">
 							</dd>
 							<dt>
 								<strong>', $txt['package_download_filename'], ':</strong>
@@ -912,7 +913,7 @@ function template_package_list()
 				{
 					// 1. Some mod [ Download ].
 					echo '
-						<strong><span id="ps_img_', $i, '_pkg_', $id, '" class="toggle_up" alt="*" style="display: none;"></span> ', $package['can_install'] || !empty($package['can_emulate_install']) ? '<strong>' . $package['name'] . '</strong> <a href="' . $package['download']['href'] . '">[ ' . $txt['download'] . ' ]</a>': $package['name'], '</strong>
+						<strong><span id="ps_img_', $i, '_pkg_', $id, '" class="toggle_up" alt="*" style="display: none;"></span> ', $package['can_install'] || !empty($package['can_emulate_install']) ? '<strong>' . $package['name'] . '</strong> <a href="' . $package['download']['href'] . '">[ ' . $txt['download'] . ' ]</a>' : $package['name'], '</strong>
 						<ul id="package_section_', $i, '_pkg_', $id, '" class="package_section">';
 
 					// Show the mod type?
@@ -1284,10 +1285,10 @@ function template_view_operations()
 	<head>
 		<meta charset="', $context['character_set'], '">
 		<title>', $txt['operation_title'], '</title>
-		<link rel="stylesheet" href="', $settings['theme_url'], '/css/index', $context['theme_variant'], '.css', $modSettings['browser_cache'] ,'">
-		<link rel="stylesheet" href="', $settings['theme_url'], '/css/admin.css', $modSettings['browser_cache'] ,'">
-		<script src="', $settings['default_theme_url'], '/scripts/script.js', $modSettings['browser_cache'] ,'"></script>
-		<script src="', $settings['default_theme_url'], '/scripts/theme.js', $modSettings['browser_cache'] ,'"></script>
+		<link rel="stylesheet" href="', $settings['theme_url'], '/css/index', $context['theme_variant'], '.css', $modSettings['browser_cache'], '">
+		<link rel="stylesheet" href="', $settings['theme_url'], '/css/admin.css', $modSettings['browser_cache'], '">
+		<script src="', $settings['default_theme_url'], '/scripts/script.js', $modSettings['browser_cache'], '"></script>
+		<script src="', $settings['default_theme_url'], '/scripts/theme.js', $modSettings['browser_cache'], '"></script>
 	</head>
 	<body>
 		<div class="padding windowbg">

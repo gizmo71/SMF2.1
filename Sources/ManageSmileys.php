@@ -7,7 +7,7 @@
  *
  * @package SMF
  * @author Simple Machines http://www.simplemachines.org
- * @copyright 2016 Simple Machines and individual contributors
+ * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
  * @version 2.1 Beta 3
@@ -1432,11 +1432,11 @@ function InstallSmileySet()
 	{
 		$base_name = strtr(basename($_REQUEST['set_gz']), ':/', '-_');
 		$name = $smcFunc['htmlspecialchars'](strtok(basename($_REQUEST['set_gz']), '.'));
-		$name_pr = preg_replace(array('/\s/', '/\.[\.]+/', '/[^\w_\.\-]/'), array('_', '.', ''), $name);
 		$context['filename'] = $base_name;
 
 		// Check that the smiley is from simplemachines.org, for now... maybe add mirroring later.
-		if (preg_match('~^http://[\w_\-]+\.simplemachines\.org/~', $_REQUEST['set_gz']) == 0 || strpos($_REQUEST['set_gz'], 'dlattach') !== false)
+		// @ TODO: Our current xml files serve http links.  Allowing both for now until we serve https.
+		if (preg_match('~^https?://[\w_\-]+\.simplemachines\.org/~', $_REQUEST['set_gz']) == 0 || strpos($_REQUEST['set_gz'], 'dlattach') !== false)
 			fatal_lang_error('not_on_simplemachines');
 
 		$destination = $packagesdir . '/' . $base_name;
@@ -1452,13 +1452,12 @@ function InstallSmileySet()
 	{
 		$base_name = basename($_REQUEST['package']);
 		$name = $smcFunc['htmlspecialchars'](strtok(basename($_REQUEST['package']), '.'));
-		$name_pr = preg_replace(array('/\s/', '/\.[\.]+/', '/[^\w_\.\-]/'), array('_', '.', ''), $name);
 		$context['filename'] = $base_name;
 
 		$destination = $packagesdir . '/' . basename($_REQUEST['package']);
 	}
 
-	if (!file_exists($destination))
+	if (empty($destination) || !file_exists($destination))
 		fatal_lang_error('package_no_file', false);
 
 	// Make sure temp directory exists and is empty.
@@ -1482,7 +1481,7 @@ function InstallSmileySet()
 
 	$extracted = read_tgz_file($destination, $packagesdir . '/temp');
 	if (!$extracted)
-		fatal_lang_error('packageget_unable', false, array('http://custom.simplemachines.org/mods/index.php?action=search;type=12;basic_search=' . $name));
+		fatal_lang_error('packageget_unable', false, array('https://custom.simplemachines.org/mods/index.php?action=search;type=12;basic_search=' . $name));
 	if ($extracted && !file_exists($packagesdir . '/temp/package-info.xml'))
 		foreach ($extracted as $file)
 			if (basename($file['filename']) == 'package-info.xml')
@@ -1747,7 +1746,7 @@ function EditMessageIcons()
 	$smcFunc['db_free_result']($request);
 
 	// Submitting a form?
-	if (isset($_POST['icons_save']))
+	if (isset($_POST['icons_save']) || isset($_POST['delete']))
 	{
 		checkSession();
 

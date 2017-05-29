@@ -14,18 +14,18 @@
  *
  * @package SMF
  * @author Simple Machines http://www.simplemachines.org
- * @copyright 2016 Simple Machines and individual contributors
+ * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
  * @version 2.1 Beta 3
  */
 
+$software_year = '2017';
 $forum_version = 'SMF 2.1 Beta 3';
-$software_year = '2016';
 
 // Get everything started up...
 define('SMF', 1);
-if (function_exists('set_magic_quotes_runtime') && strnatcmp(phpversion(),'5.3.0') < 0)
+if (function_exists('set_magic_quotes_runtime') && strnatcmp(phpversion(), '5.3.0') < 0)
 	@set_magic_quotes_runtime(0);
 error_reporting(defined('E_STRICT') ? E_ALL | E_STRICT : E_ALL);
 $time_start = microtime();
@@ -90,7 +90,7 @@ require_once($sourcedir . '/Class-BrowserDetect.php');
 if (!empty($modSettings['enableCompressedOutput']) && !headers_sent())
 {
 	// If zlib is being used, turn off output compression.
-	if (ini_get('zlib.output_compression') >=  1 || ini_get('output_handler') == 'ob_gzhandler')
+	if (ini_get('zlib.output_compression') >= 1 || ini_get('output_handler') == 'ob_gzhandler')
 		$modSettings['enableCompressedOutput'] = '0';
 	else
 	{
@@ -98,6 +98,49 @@ if (!empty($modSettings['enableCompressedOutput']) && !headers_sent())
 		ob_start('ob_gzhandler');
 	}
 }
+
+/**
+ * An autoloader for certain classes.
+ *
+ * @param string $class The fully-qualified class name.
+ */
+spl_autoload_register(function ($class) use ($sourcedir)
+{
+	$classMap = array(
+		'ReCaptcha\\' => 'ReCaptcha/',
+		'MatthiasMullie\\Minify\\' => 'minify/src/',
+		'MatthiasMullie\\PathConverter\\' => 'minify/path-converter/src/',
+	);
+
+	// Do any third-party scripts want in on the fun?
+	call_integration_hook('integrate_autoload', array(&$classMap));
+
+	foreach ($classMap as $prefix => $dirName)
+	{
+		// does the class use the namespace prefix?
+		$len = strlen($prefix);
+		if (strncmp($prefix, $class, $len) !== 0)
+		{
+			continue;
+		}
+
+		// get the relative class name
+		$relativeClass = substr($class, $len);
+
+		// replace the namespace prefix with the base directory, replace namespace
+		// separators with directory separators in the relative class name, append
+		// with .php
+		$fileName = $dirName . strtr($relativeClass, '\\', '/') . '.php';
+
+		// if the file exists, require it
+		if (file_exists($fileName = $sourcedir . '/' . $fileName))
+		{
+			require_once $fileName;
+
+			return;
+		}
+	}
+});
 
 // Register an error handler.
 set_error_handler('smf_error_handler');
@@ -189,8 +232,6 @@ function smf_main()
 		// Action and board are both empty... BoardIndex! Unless someone else wants to do something different.
 		if (empty($board) && empty($topic))
 		{
-			$defaultAction = false;
-
 			if (!empty($modSettings['integrate_default_action']))
 			{
 				$defaultAction = explode(',', $modSettings['integrate_default_action']);

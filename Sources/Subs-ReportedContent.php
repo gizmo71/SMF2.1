@@ -7,7 +7,7 @@
  *
  * @package SMF
  * @author Simple Machines http://www.simplemachines.org
- * @copyright 2016 Simple Machines and individual contributors
+ * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
  * @version 2.1 Beta 3
@@ -535,8 +535,6 @@ function getCommentModDetails($comment_id)
 {
 	global $smcFunc, $user_info;
 
-	$comment = array();
-
 	if (empty($comment_id))
 		return false;
 
@@ -577,16 +575,16 @@ function saveModComment($report_id, $data)
 
 	$data = array_merge(array($user_info['id'], $user_info['name'], 'reportc', ''), $data);
 
-	$smcFunc['db_insert']('',
+	$last_comment = $smcFunc['db_insert']('',
 		'{db_prefix}log_comments',
 		array(
 			'id_member' => 'int', 'member_name' => 'string', 'comment_type' => 'string', 'recipient_name' => 'string',
 			'id_notice' => 'int', 'body' => 'string', 'log_time' => 'int',
 		),
 		$data,
-		array('id_comment')
+		array('id_comment'),
+		1
 	);
-	$last_comment = $smcFunc['db_insert_id']('{db_prefix}log_comments', 'id_comment');
 
 	$report = getReportDetails($report_id);
 
