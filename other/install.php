@@ -8,13 +8,13 @@
  * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
- * @version 2.1 Beta 3
+ * @version 2.1 Beta 4
  */
 
-$GLOBALS['current_smf_version'] = '2.1 Beta 3';
+$GLOBALS['current_smf_version'] = '2.1 Beta 4';
 $GLOBALS['db_script_version'] = '2-1';
 
-$GLOBALS['required_php_version'] = '5.3.8';
+$GLOBALS['required_php_version'] = '5.4.0';
 
 // Don't have PHP support, do you?
 // ><html dir="ltr"><head><title>Error!</title></head><body>Sorry, this installer requires PHP!<div style="display: none;">
@@ -60,10 +60,10 @@ $databases = array(
 		'utf8_required' => true,
 		'utf8_support' => function() {
 			$request = pg_query('SHOW SERVER_ENCODING');
-			
+
 			list ($charcode) = pg_fetch_row($request);
-			
-			if ($charcode == 'UTF8')			
+
+			if ($charcode == 'UTF8')
 				return true;
 			else
 				return false;
@@ -71,6 +71,8 @@ $databases = array(
 		'utf8_version' => '8.0',
 		'utf8_version_check' => '$request = pg_query(\'SELECT version()\'); list ($version) = pg_fetch_row($request); list($pgl, $version) = explode(" ", $version); return $version;',
 		'validate_prefix' => function(&$value) {
+			global $txt;
+
 			$value = preg_replace('~[^A-Za-z0-9_\$]~', '', $value);
 
 			// Is it reserved?
@@ -85,6 +87,8 @@ $databases = array(
 		},
 	),
 );
+
+global $txt;
 
 // Initialize everything and load the language files.
 initialize_inputs();
@@ -140,15 +144,13 @@ installExit();
 
 function initialize_inputs()
 {
-	global $databases, $incontext;
+	global $databases;
 
 	// Just so people using older versions of PHP aren't left in the cold.
 	if (!isset($_SERVER['PHP_SELF']))
 		$_SERVER['PHP_SELF'] = isset($GLOBALS['HTTP_SERVER_VARS']['PHP_SELF']) ? $GLOBALS['HTTP_SERVER_VARS']['PHP_SELF'] : 'install.php';
 
-	// Turn off magic quotes runtime and enable error reporting.
-	if (function_exists('set_magic_quotes_runtime'))
-		@set_magic_quotes_runtime(0);
+	// Enable error reporting.
 	error_reporting(E_ALL);
 
 	// Fun.  Low PHP version...
@@ -327,8 +329,8 @@ function load_lang_file()
 // This handy function loads some settings and the like.
 function load_database()
 {
-	global $db_prefix, $db_connection, $sourcedir;
-	global $smcFunc, $modSettings, $db_type, $db_name, $db_user, $db_persist;
+	global $db_prefix, $db_connection, $sourcedir, $smcFunc, $modSettings;
+	global $db_server, $db_passwd, $db_type, $db_name, $db_user, $db_persist;
 
 	if (empty($sourcedir))
 		$sourcedir = dirname(__FILE__) . '/Sources';
@@ -455,7 +457,7 @@ function Welcome()
 	}
 
 	// Check the PHP version.
-	if ((!function_exists('version_compare') || version_compare($GLOBALS['required_php_version'], PHP_VERSION, '>')))
+	if ((!function_exists('version_compare') || version_compare($GLOBALS['required_php_version'], PHP_VERSION, '>=')))
 		$error = 'error_php_too_low';
 	// Make sure we have a supported database
 	elseif (empty($incontext['supported_databases']))
@@ -478,6 +480,11 @@ function Welcome()
 	// Mod_security blocks everything that smells funny. Let SMF handle security.
 	if (!fixModSecurity() && !isset($_GET['overmodsecurity']))
 		$incontext['error'] = $txt['error_mod_security'] . '<br><br><a href="' . $installurl . '?overmodsecurity=true">' . $txt['error_message_click'] . '</a> ' . $txt['error_message_bad_try_again'];
+
+	// Check for https stream support.
+	$supported_streams = stream_get_wrappers();
+	if (!in_array('https', $supported_streams))
+		$incontext['warning'] = $txt['install_no_https'];
 
 	return false;
 }
@@ -684,6 +691,7 @@ function CheckFilesWritable()
 function DatabaseSettings()
 {
 	global $txt, $databases, $incontext, $smcFunc, $sourcedir;
+	global $db_server, $db_name, $db_user, $db_passwd;
 
 	$incontext['sub_template'] = 'database_settings';
 	$incontext['page_title'] = $txt['db_settings'];
@@ -937,6 +945,8 @@ function ForumSettings()
 			'boarddir' => addslashes(dirname(__FILE__)),
 			'sourcedir' => addslashes(dirname(__FILE__)) . '/Sources',
 			'cachedir' => addslashes(dirname(__FILE__)) . '/cache',
+			'packagesdir' => addslashes(dirname(__FILE__)) . '/Packages',
+			'tasksdir' => addslashes(dirname(__FILE__)) . '/Sources/tasks',
 			'mbname' => strtr($_POST['mbname'], array('\"' => '"')),
 			'language' => substr($_SESSION['installer_temp_lang'], 8, -4),
 			'image_proxy_secret' => substr(sha1(mt_rand()), 0, 20),
@@ -961,7 +971,7 @@ function ForumSettings()
 				$incontext['error'] = sprintf($txt['error_utf8_support']);
 				return false;
 			}
-				
+
 			if (!empty($databases[$db_type]['utf8_version_check']) && version_compare($databases[$db_type]['utf8_version'], preg_replace('~\-.+?$~', '', eval($databases[$db_type]['utf8_version_check'])), '>'))
 			{
 				$incontext['error'] = sprintf($txt['error_utf8_version'], $databases[$db_type]['utf8_version']);
@@ -1211,15 +1221,17 @@ function DatabasePopulation()
 	}
 
 	// Are we allowing stat collection?
-	if (isset($_POST['stats']) && (strpos($_POST['boardurl'], 'http://localhost') !== 0 || strpos($_POST['boardurl'], 'https://localhost') !== 0))
+	if (!empty($_POST['stats']) && substr($boardurl, 0, 16) != 'http://localhost' && empty($modSettings['allow_sm_stats']) && empty($modSettings['enable_sm_stats']))
 	{
+		$upcontext['allow_sm_stats'] = true;
+
 		// Attempt to register the site etc.
-		$fp = @fsockopen("www.simplemachines.org", 80, $errno, $errstr);
+		$fp = @fsockopen('www.simplemachines.org', 80, $errno, $errstr);
 		if ($fp)
 		{
-			$out = "GET /smf/stats/register_stats.php?site=" . base64_encode($_POST['boardurl']) . " HTTP/1.1\r\n";
-			$out .= "Host: www.simplemachines.org\r\n";
-			$out .= "Connection: Close\r\n\r\n";
+			$out = 'GET /smf/stats/register_stats.php?site=' . base64_encode($boardurl) . ' HTTP/1.1' . "\r\n";
+			$out .= 'Host: www.simplemachines.org' . "\r\n";
+			$out .= 'Connection: Close' . "\r\n\r\n";
 			fwrite($fp, $out);
 
 			$return_data = '';
@@ -1232,9 +1244,27 @@ function DatabasePopulation()
 			preg_match('~SITE-ID:\s(\w{10})~', $return_data, $ID);
 
 			if (!empty($ID[1]))
-				$newSettings[] = array('allow_sm_stats', $ID[1]);
+				$smcFunc['db_insert']('replace',
+					$db_prefix . 'settings',
+					array('variable' => 'string', 'value' => 'string'),
+					array(
+						array('sm_stats_key', $ID[1]),
+						array('enable_sm_stats', 1),
+					),
+					array('variable')
+				);
 		}
 	}
+	// Don't remove stat collection unless we unchecked the box for real, not from the loop.
+	elseif (empty($_POST['stats']) && empty($upcontext['allow_sm_stats']))
+		$smcFunc['db_query']('', '
+			DELETE FROM {db_prefix}settings
+			WHERE variable = {string:enable_sm_stats}',
+			array(
+				'enable_sm_stats' => 'enable_sm_stats',
+				'db_error_skip' => true,
+			)
+		);
 
 	// Are we enabling SSL?
 	if (!empty($_POST['force_ssl']))
@@ -1321,7 +1351,7 @@ function DatabasePopulation()
 // Ask for the administrator login information.
 function AdminAccount()
 {
-	global $txt, $db_type, $db_connection, $smcFunc, $incontext, $db_prefix, $db_passwd, $sourcedir, $db_character_set;
+	global $txt, $db_type, $smcFunc, $incontext, $db_prefix, $db_passwd, $sourcedir, $db_character_set, $boardurl, $cachedir;
 
 	$incontext['sub_template'] = 'admin_account';
 	$incontext['page_title'] = $txt['user_settings'];
@@ -1338,6 +1368,10 @@ function AdminAccount()
 	require_once($sourcedir . '/Subs-Auth.php');
 
 	require_once($sourcedir . '/Subs.php');
+
+	// Reload settings & set some global funcs
+	require_once($sourcedir . '/Load.php');
+	reloadSettings();
 
 	// We need this to properly hash the password for Admin
 	$smcFunc['strtolower'] = $db_character_set != 'utf8' && $txt['lang_character_set'] != 'UTF-8' ? 'strtolower' : function($string) {
@@ -1498,9 +1532,8 @@ function AdminAccount()
 // Final step, clean up and a complete message!
 function DeleteInstall()
 {
-	global $txt, $incontext;
-	global $smcFunc, $db_character_set, $context, $cookiename;
-	global $current_smf_version, $databases, $sourcedir, $forum_version, $modSettings, $user_info, $db_type, $boardurl;
+	global $smcFunc, $db_character_set, $context, $txt, $incontext;
+	global $current_smf_version, $databases, $sourcedir, $forum_version, $modSettings, $user_info, $db_type, $boardurl, $cachedir;
 
 	$incontext['page_title'] = $txt['congratulations'];
 	$incontext['sub_template'] = 'delete_install';
@@ -1517,6 +1550,9 @@ function DeleteInstall()
 	require_once($sourcedir . '/Load.php');
 	require_once($sourcedir . '/Security.php');
 	require_once($sourcedir . '/Subs-Auth.php');
+
+	// Reload settings & set some global funcs
+	reloadSettings();
 
 	// Bring a warning over.
 	if (!empty($incontext['account_existed']))
@@ -2233,7 +2269,7 @@ function template_forum_settings()
 			<tr>
 				<td class="textbox" style="vertical-align: top;">', $txt['install_settings_stats'], ':</td>
 				<td>
-					<input type="checkbox" name="stats" id="stats_check" class="input_check" />&nbsp;
+					<input type="checkbox" name="stats" id="stats_check" class="input_check" checked="checked" />&nbsp;
 					<label for="stats_check">', $txt['install_settings_stats_title'], '</label>
 					<br>
 					<div class="smalltext block">', $txt['install_settings_stats_info'], '</div>

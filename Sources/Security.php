@@ -11,7 +11,7 @@
  * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
- * @version 2.1 Beta 3
+ * @version 2.1 Beta 4
  */
 
 if (!defined('SMF'))
@@ -28,7 +28,7 @@ if (!defined('SMF'))
  */
 function validateSession($type = 'admin')
 {
-	global $modSettings, $sourcedir, $user_info, $user_settings;
+	global $modSettings, $sourcedir, $user_info;
 
 	// We don't care if the option is off, because Guests should NEVER get past here.
 	is_not_guest();

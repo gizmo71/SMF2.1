@@ -10,7 +10,7 @@
  * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
- * @version 2.1 Beta 3
+ * @version 2.1 Beta 4
  */
 
 if (!defined('SMF'))
@@ -258,7 +258,7 @@ class xmlArray
 	 * Example use:
 	 *  foreach ($xml->set('html/body/p') as $p)
 	 * @param $path string The path to search for.
-	 * @return array An array of xmlArray objects
+	 * @return xmlArray[] An array of xmlArray objects
 	 */
 	public function set($path)
 	{

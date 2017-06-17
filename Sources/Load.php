@@ -10,7 +10,7 @@
  * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
- * @version 2.1 Beta 3
+ * @version 2.1 Beta 4
  */
 
 if (!defined('SMF'))
@@ -234,7 +234,7 @@ function reloadSettings()
 
 		// If date.timezone is unset, invalid, or just plain weird, make a best guess
 		if (!in_array($modSettings['default_timezone'], timezone_identifiers_list()))
-		{	
+		{
 			$server_offset = @mktime(0, 0, 0, 1, 1, 1970);
 			$modSettings['default_timezone'] = timezone_name_from_abbr('', $server_offset, 0);
 		}
@@ -850,7 +850,7 @@ function loadBoard()
 
 	if (empty($temp))
 	{
-		$request = $smcFunc['db_query']('', '
+		$request = $smcFunc['db_query']('load_board_info', '
 			SELECT
 				c.id_cat, b.name AS bname, b.description, b.num_topics, b.member_groups, b.deny_member_groups,
 				b.id_parent, c.name AS cname, COALESCE(mg.id_group, 0) AS id_moderator_group, mg.group_name,
@@ -2653,7 +2653,7 @@ function loadLanguage($template_name, $lang = '', $fatal = true, $force_reload =
 				// setlocale is required for basename() & pathinfo() to work properly on the selected language
 				if (!empty($txt['lang_locale']) && !empty($modSettings['global_character_set']))
 					setlocale(LC_CTYPE, $txt['lang_locale'] . '.' . $modSettings['global_character_set']);
-				
+
 				break;
 			}
 		}
@@ -3050,8 +3050,9 @@ function template_include($filename, $once = false)
 			require_once($sourcedir . '/Subs-Package.php');
 
 			$error = fetch_web_data($boardurl . strtr($filename, array($boarddir => '', strtr($boarddir, '\\', '/') => '')));
-			if (empty($error) && ini_get('track_errors') && !empty($php_errormsg))
-				$error = $php_errormsg;
+			$error_array = error_get_last();
+			if (empty($error) && ini_get('track_errors') && !empty($error_array))
+				$error = $error_array['message'];
 			if (empty($error))
 				$error = $txt['template_parse_errmsg'];
 
@@ -3320,7 +3321,7 @@ function cache_quick_get($key, $file, $function, $params, $level = 1)
  */
 function cache_put_data($key, $value, $ttl = 120)
 {
-	global $boardurl, $modSettings, $cache_enable, $cacheAPI;
+	global $cache_enable, $cacheAPI;
 	global $cache_hits, $cache_count, $db_show_debug;
 
 	if (empty($cache_enable) || empty($cacheAPI))
@@ -3355,7 +3356,7 @@ function cache_put_data($key, $value, $ttl = 120)
  */
 function cache_get_data($key, $ttl = 120)
 {
-	global $boardurl, $modSettings, $cache_enable, $cacheAPI;
+	global $cache_enable, $cacheAPI;
 	global $cache_hits, $cache_count, $cache_misses, $cache_count_misses, $db_show_debug;
 
 	if (empty($cache_enable) || empty($cacheAPI))

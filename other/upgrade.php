@@ -8,18 +8,18 @@
  * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
- * @version 2.1 Beta 3
+ * @version 2.1 Beta 4
  */
 
 // Version information...
-define('SMF_VERSION', '2.1 Beta 3');
-define('SMF_LANG_VERSION', '2.1 Beta 3');
+define('SMF_VERSION', '2.1 Beta 4');
+define('SMF_LANG_VERSION', '2.1 Beta 4');
 
 /**
  * The minimum required PHP version.
  * @var string
  */
-$GLOBALS['required_php_version'] = '5.3.8';
+$GLOBALS['required_php_version'] = '5.4.0';
 
 /**
  * A list of supported database systems.
@@ -280,6 +280,8 @@ foreach ($upcontext['steps'] as $num => $step)
 		elseif (function_exists($step[2])) {
 			//Start each new step with this unset, so the 'normal' template is called first
 			unset($_GET['xml']);
+			//Clear out warnings at the start of each step
+			unset($upcontext['custom_warning']);
 			$_GET['substep'] = 0;
 			$upcontext['current_step']++;
 		}
@@ -427,10 +429,6 @@ function loadEssentialData()
 	global $db_server, $db_user, $db_passwd, $db_name, $db_connection, $db_prefix, $db_character_set, $db_type;
 	global $modSettings, $sourcedir, $smcFunc;
 
-	// Do the non-SSI stuff...
-	if (function_exists('set_magic_quotes_runtime'))
-		@set_magic_quotes_runtime(0);
-
 	error_reporting(E_ALL);
 	define('SMF', 1);
 
@@ -512,7 +510,7 @@ function loadEssentialData()
 
 function initialize_inputs()
 {
-	global $start_time, $upcontext, $db_type;
+	global $start_time, $db_type;
 
 	$start_time = time();
 
@@ -721,6 +719,11 @@ function WelcomeLogin()
 			</ul>
 			If these seem incorrect please open Settings.php in a text editor before proceeding with this upgrade. If they are incorrect due to you moving your forum to a new location please download and execute the <a href="https://download.simplemachines.org/?tools">Repair Settings</a> tool from the Simple Machines website before continuing.';
 
+	// Check for https stream support.
+	$supported_streams = stream_get_wrappers();
+	if (!in_array('https', $supported_streams))
+		$upcontext['custom_warning'] = $txt['install_no_https'];
+
 	// Either we're logged in or we're going to present the login.
 	if (checkLogin())
 		return true;
@@ -912,7 +915,7 @@ function checkLogin()
 function UpgradeOptions()
 {
 	global $db_prefix, $command_line, $modSettings, $is_debug, $smcFunc, $packagesdir, $tasksdir, $language;
-	global $boarddir, $boardurl, $sourcedir, $maintenance, $cachedir, $upcontext, $db_type, $db_server, $db_last_error;
+	global $boarddir, $boardurl, $sourcedir, $maintenance, $cachedir, $upcontext, $db_type, $db_server;
 
 	$upcontext['sub_template'] = 'upgrade_options';
 	$upcontext['page_title'] = 'Upgrade Options';
@@ -931,41 +934,60 @@ function UpgradeOptions()
 		return false;
 
 	// Firstly, if they're enabling SM stat collection just do it.
-	if (!empty($_POST['stats']) && (substr($boardurl, 0, 16) != 'http://localhost' || substr($boardurl, 0, 16) != 'https://localhost') && empty($modSettings['allow_sm_stats']))
+	if (!empty($_POST['stats']) && substr($boardurl, 0, 16) != 'http://localhost' && empty($modSettings['allow_sm_stats']) && empty($modSettings['enable_sm_stats']))
 	{
-		// Attempt to register the site etc.
-		$fp = @fsockopen('www.simplemachines.org', 80, $errno, $errstr);
-		if ($fp)
+		$upcontext['allow_sm_stats'] = true;
+
+		// Don't register if we still have a key.
+		if (empty($modSettings['sm_stats_key']))
 		{
-			$out = 'GET /smf/stats/register_stats.php?site=' . base64_encode($boardurl) . ' HTTP/1.1' . "\r\n";
-			$out .= 'Host: www.simplemachines.org' . "\r\n";
-			$out .= 'Connection: Close' . "\r\n\r\n";
-			fwrite($fp, $out);
+			// Attempt to register the site etc.
+			$fp = @fsockopen('www.simplemachines.org', 80, $errno, $errstr);
+			if ($fp)
+			{
+				$out = 'GET /smf/stats/register_stats.php?site=' . base64_encode($boardurl) . ' HTTP/1.1' . "\r\n";
+				$out .= 'Host: www.simplemachines.org' . "\r\n";
+				$out .= 'Connection: Close' . "\r\n\r\n";
+				fwrite($fp, $out);
 
-			$return_data = '';
-			while (!feof($fp))
-				$return_data .= fgets($fp, 128);
+				$return_data = '';
+				while (!feof($fp))
+					$return_data .= fgets($fp, 128);
 
-			fclose($fp);
+				fclose($fp);
 
-			// Get the unique site ID.
-			preg_match('~SITE-ID:\s(\w{10})~', $return_data, $ID);
+				// Get the unique site ID.
+				preg_match('~SITE-ID:\s(\w{10})~', $return_data, $ID);
 
-			if (!empty($ID[1]))
-				$smcFunc['db_insert']('replace',
-					$db_prefix . 'settings',
-					array('variable' => 'string', 'value' => 'string'),
-					array('allow_sm_stats', $ID[1]),
-					array('variable')
-				);
+				if (!empty($ID[1]))
+					$smcFunc['db_insert']('replace',
+						$db_prefix . 'settings',
+						array('variable' => 'string', 'value' => 'string'),
+						array(
+							array('sm_stats_key', $ID[1]),
+							array('enable_sm_stats', 1),
+						),
+						array('variable')
+					);
+			}
+		}
+		else
+		{
+			$smcFunc['db_insert']('replace',
+				$db_prefix . 'settings',
+				array('variable' => 'string', 'value' => 'string'),
+				array('enable_sm_stats', 1),
+				array('variable')
+			);
 		}
 	}
-	else
+	// Don't remove stat collection unless we unchecked the box for real, not from the loop.
+	elseif (empty($_POST['stats']) && empty($upcontext['allow_sm_stats']))
 		$smcFunc['db_query']('', '
 			DELETE FROM {db_prefix}settings
-			WHERE variable = {string:allow_sm_stats}',
+			WHERE variable = {string:enable_sm_stats}',
 			array(
-				'allow_sm_stats' => 'allow_sm_stats',
+				'enable_sm_stats' => 'enable_sm_stats',
 				'db_error_skip' => true,
 			)
 		);
@@ -1320,7 +1342,7 @@ function DatabaseChanges()
 // Delete the damn thing!
 function DeleteUpgrade()
 {
-	global $command_line, $language, $upcontext, $boarddir, $sourcedir, $forum_version, $user_info, $maintenance, $smcFunc, $db_type;
+	global $command_line, $language, $upcontext, $sourcedir, $forum_version, $user_info, $maintenance, $smcFunc, $db_type;
 
 	// Now it's nice to have some of the basic SMF source files.
 	if (!isset($_GET['ssi']) && !$command_line)
@@ -1579,7 +1601,7 @@ function fixRelativePath($path)
 function parse_sql($filename)
 {
 	global $db_prefix, $db_collation, $boarddir, $boardurl, $command_line, $file_steps, $step_progress, $custom_warning;
-	global $upcontext, $support_js, $is_debug, $smcFunc, $databases, $db_type, $db_character_set;
+	global $upcontext, $support_js, $is_debug, $db_type, $db_character_set;
 
 /*
 	Failure allowed on:
@@ -2701,7 +2723,7 @@ function ConvertUtf8()
 		$queryTables = $smcFunc['db_list_tables'](false, $db_prefix . '%');
 
 		$upcontext['table_count'] = count($queryTables);
-	
+
 		// What ones have we already done?
 		foreach ($queryTables as $id => $table)
 			if ($id < $_GET['substep'])
@@ -2710,13 +2732,13 @@ function ConvertUtf8()
 		$upcontext['cur_table_num'] = $_GET['substep'];
 		$upcontext['cur_table_name'] = str_replace($db_prefix, '', $queryTables[$_GET['substep']]);
 		$upcontext['step_progress'] = (int) (($upcontext['cur_table_num'] / $upcontext['table_count']) * 100);
-			
-		// Make sure we're ready & have painted the template before proceeding	
+
+		// Make sure we're ready & have painted the template before proceeding
 		if ($support_js && !isset($_GET['xml'])) {
 			$_GET['substep'] = 0;
 			return false;
-		}	
-			
+		}
+
 		// We want to start at the first table.
 		for ($substep = $_GET['substep'], $n = count($queryTables); $substep < $n; $substep++)
 		{
@@ -2764,17 +2786,20 @@ function ConvertUtf8()
 					{
 						list($charset) = explode('_', $collation);
 
-						if (!isset($table_charsets[$charset]))
-							$table_charsets[$charset] = array();
+						// Build structure of columns to operate on organized by charset; only operate on columns not yet utf8
+						if ($charset != 'utf8') {
+							if (!isset($table_charsets[$charset]))
+								$table_charsets[$charset] = array();
 
-						$table_charsets[$charset][] = $column_info;
+							$table_charsets[$charset][] = $column_info;
+						}
 					}
 				}
 			}
 			$smcFunc['db_free_result']($queryColumns);
 
-			// Only change the column if the data doesn't match the current charset.
-			if ((count($table_charsets) === 1 && key($table_charsets) !== $charsets[$upcontext['charset_detected']]) || count($table_charsets) > 1)
+			// Only change the non-utf8 columns identified above
+			if (count($table_charsets) > 0)
 			{
 				$updates_blob = '';
 				$updates_text = '';
@@ -3681,7 +3706,7 @@ function template_welcome_message()
 
 function template_upgrade_options()
 {
-	global $upcontext, $modSettings, $db_prefix, $mmessage, $mtitle, $db_type;
+	global $upcontext, $modSettings, $db_prefix, $mmessage, $mtitle;
 
 	echo '
 			<h3>Before the upgrade gets underway please review the options below - and hit continue when you\'re ready to begin.</h3>
@@ -3753,7 +3778,7 @@ function template_upgrade_options()
 	echo '
 					<tr valign="top">
 						<td width="2%">
-							<input type="checkbox" name="stat" id="stat" value="1"', empty($modSettings['allow_sm_stats']) ? '' : ' checked', ' class="input_check">
+							<input type="checkbox" name="stats" id="stats" value="1"', empty($modSettings['allow_sm_stats']) && empty($modSettings['enable_sm_stats']) ? '' : ' checked="checked"', ' class="input_check" />
 						</td>
 						<td width="100%">
 							<label for="stat">
@@ -3846,7 +3871,7 @@ function template_backup_database()
 					getNextTables();
 			}
 			getNextTables();
-		//# sourceURL=dynamicScript-bkup.js 
+		//# sourceURL=dynamicScript-bkup.js
 		</script>';
 	}
 }
@@ -4242,7 +4267,7 @@ function template_database_changes()
 			getNextItem();';
 
 		echo '
-		//# sourceURL=dynamicScript-dbch.js 
+		//# sourceURL=dynamicScript-dbch.js
 		</script>';
 	}
 	return;
@@ -4282,7 +4307,7 @@ function template_convert_utf8()
 			<form action="', $upcontext['form_url'], '" name="upform" id="upform" method="post">
 			<input type="hidden" name="utf8_done" id="utf8_done" value="0">
 			<strong>Completed <span id="tab_done">', $upcontext['cur_table_num'], '</span> out of ', $upcontext['table_count'], ' tables.</strong>
-			<div id="debug_section" style="height: ', ($is_debug ? '115' : '12') , 'px; overflow: auto;">
+			<div id="debug_section" style="height: ', ($is_debug ? '97' : '12') , 'px; overflow: auto;">
 			<span id="debuginfo"></span>
 			</div>';
 
@@ -4296,10 +4321,11 @@ function template_convert_utf8()
 			<h3 id="current_tab_div">Current Table: &quot;<span id="current_table">', $upcontext['cur_table_name'], '</span>&quot;</h3>';
 
 	// If we dropped their index, let's let them know
-	if ($upcontext['cur_table_num'] == $upcontext['table_count'] && $upcontext['dropping_index'])
+	if ($upcontext['dropping_index'])
 		echo '
-			<br><span style="display:inline;">Please note that your fulltext index was dropped to facilitate the conversion and will need to be recreated.</span>';
+				<br><span id="indexmsg" style="font-weight: bold; font-style: italic; display: ', $upcontext['cur_table_num'] == $upcontext['table_count'] ? 'inline' : 'none', ';">Please note that your fulltext index was dropped to facilitate the conversion and will need to be recreated in the admin area after the upgrade is complete.</span>';
 
+	// Completion notification
 	echo '
 			<br><span id="commess" style="font-weight: bold; display: ', $upcontext['cur_table_num'] == $upcontext['table_count'] ? 'inline' : 'none', ';">Conversion Complete! Click Continue to Proceed.</span>';
 
@@ -4346,6 +4372,9 @@ function template_convert_utf8()
 				if (iTableNum == ', $upcontext['table_count'], ')
 				{
 					document.getElementById(\'commess\').style.display = "";
+					if (document.getElementById(\'indexmsg\') != null) {
+						document.getElementById(\'indexmsg\').style.display = "";
+					}
 					document.getElementById(\'current_tab_div\').style.display = "none";
 					document.getElementById(\'contbutt\').disabled = 0;
 					document.getElementById(\'utf8_done\').value = 1;
@@ -4354,7 +4383,7 @@ function template_convert_utf8()
 					getNextTables();
 			}
 			getNextTables();
-		//# sourceURL=dynamicScript-conv.js 
+		//# sourceURL=dynamicScript-conv.js
 		</script>';
 	}
 }
@@ -4449,7 +4478,7 @@ function template_serialize_json()
 					getNextTables();
 			}
 			getNextTables();
-		//# sourceURL=dynamicScript-json.js 
+		//# sourceURL=dynamicScript-json.js
 		</script>';
 	}
 }
@@ -4673,7 +4702,7 @@ function upgradeGetColumnInfo($targetTable, $column)
 
  	// This should already be here, but be safe.
  	db_extend('packages');
- 
+
  	$columns = $smcFunc['db_list_columns']($targetTable, true);
 
 	if (isset($columns[$column]))

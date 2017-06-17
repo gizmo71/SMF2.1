@@ -8,7 +8,7 @@
  * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
- * @version 2.1 Beta 3
+ * @version 2.1 Beta 4
  */
 
 // This won't be dedicated without this - this must exist in each gateway!
@@ -383,7 +383,6 @@ class paypal_payment
 		// If it's a subscription record the reference.
 		if ($_POST['txn_type'] == 'subscr_payment' && !empty($_POST['subscr_id']))
 		{
-			$_POST['subscr_id'] = $_POST['subscr_id'];
 			$smcFunc['db_query']('', '
 				UPDATE {db_prefix}log_subscribed
 				SET vendor_ref = {string:vendor_ref}

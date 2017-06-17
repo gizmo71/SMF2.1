@@ -11,7 +11,7 @@
  * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
- * @version 2.1 Beta 3
+ * @version 2.1 Beta 4
  */
 
 if (!defined('SMF'))
@@ -1278,19 +1278,18 @@ function Post($post_errors = array())
 			text_insertBBC: '. JavaScriptEscape($txt['attached_insertBBC']) . ',
 			text_attachUploaded: '. JavaScriptEscape($txt['attached_file_uploaded']) . ',
 			text_attach_unlimited: '. JavaScriptEscape($txt['attach_drop_unlimited']) . ',
+			text_totalMaxSize: '. JavaScriptEscape($txt['attach_max_total_file_size_current']) . ',
+			text_max_size_progress: '. JavaScriptEscape($txt['attach_max_size_progress']) . ',
 			dictMaxFilesExceeded: '. JavaScriptEscape($txt['more_attachments_error']) . ',
 			dictInvalidFileType: '. JavaScriptEscape(sprintf($txt['cant_upload_type'], $context['allowed_extensions'])) . ',
 			dictFileTooBig: '. JavaScriptEscape(sprintf($txt['file_too_big'], comma_format($modSettings['attachmentSizeLimit'], 0))) . ',
-			maxTotalSize: '. JavaScriptEscape($txt['attach_max_total_file_size_current']) . ',
 			acceptedFiles: '. JavaScriptEscape($acceptedFiles) . ',
-			maxFilesize: '. (!empty($modSettings['attachmentSizeLimit']) ? $modSettings['attachmentSizeLimit'] : 'null') . ',
 			thumbnailWidth: '.(!empty($modSettings['attachmentThumbWidth']) ? $modSettings['attachmentThumbWidth'] : 'null') . ',
 			thumbnailHeight: '.(!empty($modSettings['attachmentThumbHeight']) ? $modSettings['attachmentThumbHeight'] : 'null') . ',
-			maxFiles: '. (!empty($context['num_allowed_attachments']) ? $context['num_allowed_attachments'] : 'null') . ',
-			text_totalMaxSize: '. JavaScriptEscape($txt['attach_max_total_file_size_current']) . ',
-			text_max_size_progress: '. JavaScriptEscape($txt['attach_max_size_progress']) . ',
 			limitMultiFileUploadSize:'. round(max($modSettings['attachmentPostLimit'] - ($context['attachments']['total_size'] / 1024), 0)) * 1024 . ',
-			maxLimitReferenceUploadSize: '. $modSettings['attachmentPostLimit'] * 1024 . ',
+			maxFileAmount: '. (!empty($context['num_allowed_attachments']) ? $context['num_allowed_attachments'] : 'null') . ',
+			maxTotalSize: ' . (!empty($modSettings['attachmentPostLimit']) ? $modSettings['attachmentPostLimit'] : '0') . ',
+			maxFileSize: '. (!empty($modSettings['attachmentSizeLimit']) ? $modSettings['attachmentSizeLimit'] : '0') . ',
 		});
 	});', true);
 	}
@@ -2306,7 +2305,7 @@ function AnnounceTopic()
  */
 function AnnouncementSelectMembergroup()
 {
-	global $txt, $context, $topic, $board, $board_info, $smcFunc;
+	global $txt, $context, $topic, $board_info, $smcFunc;
 
 	$groups = array_merge($board_info['groups'], array(1));
 	foreach ($groups as $id => $group)

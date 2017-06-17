@@ -6,7 +6,7 @@
  * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
- * @version 2.1 Beta 3
+ * @version 2.1 Beta 4
  */
 
 (function ($) {
@@ -647,7 +647,9 @@ $.sceditor.plugins.bbcode.bbcode.set(
 			if (typeof attrs.date !== "undefined" && attrs.date)
 			{
 				attr_date = attrs.date;
-				sDate = '<date timestamp="' + attr_date + '">' + new Date(attrs.date * 1000) + '</date>';
+				tDate = new Date(attr_date * 1000);
+				sDate_string = tDate.toLocaleString();
+				sDate = '<date timestamp="' + attr_date + '">' + sDate_string + '</date>';
 			}
 
 			if (author == '' && sDate == '')

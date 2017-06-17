@@ -10,7 +10,7 @@
  * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
- * @version 2.1 Beta 3
+ * @version 2.1 Beta 4
  */
 
 if (!defined('SMF'))
@@ -121,7 +121,7 @@ function setLoginCookie($cookie_length, $id, $password = '')
  */
 function setTFACookie($cookie_length, $id, $secret, $preserve = false)
 {
-	global $modSettings, $cookiename, $boardurl;
+	global $modSettings, $cookiename;
 
 	$identifier = $cookiename . '_tfa';
 	$cookie_state = (empty($modSettings['localCookies']) ? 0 : 1) | (empty($modSettings['globalCookies']) ? 0 : 2);
@@ -235,7 +235,7 @@ function InMaintenance()
  */
 function adminLogin($type = 'admin')
 {
-	global $context, $txt, $user_settings, $user_info;
+	global $context, $txt, $user_info;
 
 	loadLanguage('Admin');
 	loadTemplate('Login');

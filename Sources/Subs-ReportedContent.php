@@ -10,7 +10,7 @@
  * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
- * @version 2.1 Beta 3
+ * @version 2.1 Beta 4
  */
 
 if (!defined('SMF'))
@@ -135,8 +135,6 @@ function updateReport($action, $value, $report_id)
 function countReports($closed = 0)
 {
 	global $smcFunc, $user_info, $context;
-
-	$total_reports = 0;
 
 	// Skip entries with id_board = 0 if we're viewing member reports
 	if ($context['report_type'] == 'members')
@@ -345,7 +343,7 @@ function getReports($closed = 0)
 /**
  * Recount all open reports. Sets a SESSION var with the updated info.
  *
- * @param string the type of reports to count
+ * @param string $type the type of reports to count
  * @return int the update open report count.
  */
 function recountOpenReports($type)

@@ -10,7 +10,7 @@
  * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
- * @version 2.1 Beta 3
+ * @version 2.1 Beta 4
  */
 
 if (!defined('SMF'))
@@ -30,7 +30,7 @@ if (!defined('SMF'))
  */
 function smf_db_initiate($db_server, $db_name, $db_user, $db_passwd, $db_prefix, $db_options = array())
 {
-	global $smcFunc, $mysql_set_mode;
+	global $smcFunc;
 
 	// Map some database specific functions, only do this once.
 	if (!isset($smcFunc['db_fetch_assoc']))
@@ -65,11 +65,11 @@ function smf_db_initiate($db_server, $db_name, $db_user, $db_passwd, $db_prefix,
 		$db_server = 'p:' . $db_server;
 
 	$connection = mysqli_init();
-	
+
 	$flags = MYSQLI_CLIENT_FOUND_ROWS;
-	
+
 	$success = false;
-	
+
 	if ($connection) {
 		if (!empty($db_options['port']))
 			$success = mysqli_real_connect($connection, $db_server, $db_user, $db_passwd, '', $db_options['port'], null, $flags);
@@ -90,9 +90,7 @@ function smf_db_initiate($db_server, $db_name, $db_user, $db_passwd, $db_prefix,
 	if (empty($db_options['dont_select_db']) && !@mysqli_select_db($connection, $db_name) && empty($db_options['non_fatal']))
 		display_db_error();
 
-	// This makes it possible to have SMF automatically change the sql_mode and autocommit if needed.
-	if (isset($mysql_set_mode) && $mysql_set_mode === true)
-		$smcFunc['db_query']('', 'SET sql_mode = \'\', AUTOCOMMIT = 1',
+	$smcFunc['db_query']('', 'SET SESSION sql_mode = \'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION\'',
 		array(),
 		false
 	);
@@ -154,7 +152,7 @@ function smf_db_get_server_info($connection = null)
 
 /**
  * Callback for preg_replace_callback on the query.
- * It allows to replace on the fly a few pre-defined strings, for convenience ('query_see_board', 'query_wanna_see_board'), with
+ * It allows to replace on the fly a few pre-defined strings, for convenience ('query_see_board', 'query_wanna_see_board', etc), with
  * their current values from $user_info.
  * In addition, it performs checks and sanitization on the values sent to the database.
  *
@@ -172,11 +170,12 @@ function smf_db_replacement__callback($matches)
 	if ($matches[1] === 'db_prefix')
 		return $db_prefix;
 
-	if ($matches[1] === 'query_see_board')
-		return $user_info['query_see_board'];
-
-	if ($matches[1] === 'query_wanna_see_board')
-		return $user_info['query_wanna_see_board'];
+	if (!empty($user_info))
+	{
+		foreach (array_keys($user_info) as $key)
+			if (strpos($key, 'query_') !== false && $key === $matches[1])
+				return $user_info[$matches[1]];
+	}
 
 	if ($matches[1] === 'empty')
 		return '\'\'';
@@ -254,7 +253,7 @@ function smf_db_replacement__callback($matches)
 			else
 				smf_db_error_backtrace('Wrong value type sent to the database. Time expected. (' . $matches[2] . ')', '', E_USER_ERROR, __FILE__, __LINE__);
 		break;
-		
+
 		case 'datetime':
 			if (preg_match('~^(\d{4})-([0-1]?\d)-([0-3]?\d) ([0-1]?\d|2[0-3]):([0-5]\d):([0-5]\d)$~', $replacement, $datetime_matches) === 1)
 				return 'str_to_date('.
@@ -272,7 +271,7 @@ function smf_db_replacement__callback($matches)
 
 		case 'identifier':
 			// Backticks inside identifiers are supported as of MySQL 4.1. We don't need them for SMF.
-			return '`' . strtr($replacement, array('`' => '', '.' => '')) . '`';
+			return '`' . strtr($replacement, array('`' => '', '.' => '`.`')) . '`';
 		break;
 
 		case 'raw':
@@ -768,9 +767,9 @@ function smf_db_error($db_string, $connection = null)
  * @param array $columns An array of the columns we're inserting the data into. Should contain 'column' => 'datatype' pairs
  * @param array $data The data to insert
  * @param array $keys The keys for the table
- * @param int returnmode 0 = nothing(default), 1 = last row id, 2 = all rows id as array; every mode runs only with method = ''
+ * @param int returnmode 0 = nothing(default), 1 = last row id, 2 = all rows id as array; every mode runs only with method = '' or 'insert'
  * @param object $connection The connection to use (if null, $db_connection is used)
- * @return value of the first key, behavior based on returnmode
+ * @return mixed value of the first key, behavior based on returnmode. null if no data.
  */
 function smf_db_insert($method = 'replace', $table, $columns, $data, $keys, $returnmode = 0, $connection = null)
 {
@@ -824,8 +823,8 @@ function smf_db_insert($method = 'replace', $table, $columns, $data, $keys, $ret
 		),
 		$connection
 	);
-	
-	if(!empty($keys) && (count($keys) > 0) && $method == '' && $returnmode > 0)
+
+	if(!empty($keys) && (count($keys) > 0) && ($method === '' || $method === 'insert') && $returnmode > 0)
 	{
 		if ($returnmode == 1)
 			$return_var = smf_db_insert_id($table, $keys[0]) + count($insertRows) - 1;

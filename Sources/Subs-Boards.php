@@ -11,7 +11,7 @@
  * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
- * @version 2.1 Beta 3
+ * @version 2.1 Beta 4
  */
 
 if (!defined('SMF'))
@@ -384,7 +384,7 @@ function MarkRead()
 			);
 			if ($smcFunc['db_num_rows']($result) > 0)
 			{
-				$logBoardInserts = '';
+				$logBoardInserts = array();
 				while ($row = $smcFunc['db_fetch_assoc']($result))
 					$logBoardInserts[] = array($modSettings['maxMsgID'], $user_info['id'], $row['id_board']);
 
@@ -641,7 +641,7 @@ function modifyBoard($board_id, &$boardOptions)
 	}
 
 	$id = $board_id;
-	call_integration_hook('integrate_modify_board', array($id, &$boardUpdates, &$boardUpdateParameters));
+	call_integration_hook('integrate_modify_board', array($id, $boardOptions, &$boardUpdates, &$boardUpdateParameters));
 
 	// Do the updates (if any).
 	if (!empty($boardUpdates))

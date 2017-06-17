@@ -10,7 +10,7 @@
  * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
- * @version 2.1 Beta 3
+ * @version 2.1 Beta 4
  */
 
 if (!defined('SMF'))
@@ -112,7 +112,7 @@ function db_fix_prefix(&$db_prefix, $db_name)
 
 /**
  * Callback for preg_replace_callback on the query.
- * It allows to replace on the fly a few pre-defined strings, for convenience ('query_see_board', 'query_wanna_see_board'), with
+ * It allows to replace on the fly a few pre-defined strings, for convenience ('query_see_board', 'query_wanna_see_board', etc), with
  * their current values from $user_info.
  * In addition, it performs checks and sanitization on the values sent to the database.
  *
@@ -128,11 +128,12 @@ function smf_db_replacement__callback($matches)
 	if ($matches[1] === 'db_prefix')
 		return $db_prefix;
 
-	if ($matches[1] === 'query_see_board')
-		return $user_info['query_see_board'];
-
-	if ($matches[1] === 'query_wanna_see_board')
-		return $user_info['query_wanna_see_board'];
+	if (!empty($user_info))
+	{
+		foreach (array_keys($user_info) as $key)
+			if (strpos($key, 'query_') !== false && $key === $matches[1])
+				return $user_info[$matches[1]];
+	}
 
 	if ($matches[1] === 'empty')
 		return '\'\'';
@@ -210,7 +211,7 @@ function smf_db_replacement__callback($matches)
 			else
 				smf_db_error_backtrace('Wrong value type sent to the database. Time expected. (' . $matches[2] . ')', '', E_USER_ERROR, __FILE__, __LINE__);
 		break;
-		
+
 		case 'datetime':
 			if (preg_match('~^(\d{4})-([0-1]?\d)-([0-3]?\d) ([0-1]?\d|2[0-3]):([0-5]\d):([0-5]\d)$~', $replacement, $datetime_matches) === 1)
 				return 'to_timestamp('.
@@ -227,7 +228,7 @@ function smf_db_replacement__callback($matches)
 		break;
 
 		case 'identifier':
-			return '"' . strtr($replacement, array('`' => '', '.' => '')) . '"';
+			return '"' . strtr($replacement, array('`' => '', '.' => '"."')) . '"';
 		break;
 
 		case 'raw':
@@ -343,6 +344,13 @@ function smf_db_query($identifier, $db_string, $db_values = array(), $connection
 		),
 	);
 
+	// Special optimizer Hints
+	$query_opt = array(
+		'load_board_info' => array(
+			'join_collapse_limit' => 1
+		)
+	);
+
 	if (isset($replacements[$identifier]))
 		$db_string = preg_replace(array_keys($replacements[$identifier]), array_values($replacements[$identifier]), $db_string);
 
@@ -455,6 +463,20 @@ function smf_db_query($identifier, $db_string, $db_values = array(), $connection
 
 		if (!empty($fail) && function_exists('log_error'))
 			smf_db_error_backtrace('Hacking attempt...', 'Hacking attempt...' . "\n" . $db_string, E_USER_ERROR, __FILE__, __LINE__);
+	}
+
+	// Set optimize stuff
+	if (isset($query_opt[$identifier]))
+	{
+		$query_hints = $query_opt[$identifier];
+		$query_hints_set = '';
+		if (isset($query_hints['join_collapse_limit']))
+		{
+			$query_hints_set .= 'SET LOCAL join_collapse_limit = 1;';
+		}
+
+		$db_string = $query_hints_set .'
+		' . $db_string;
 	}
 
 	$db_last_result = @pg_query($connection, $db_string);
@@ -661,13 +683,13 @@ function smf_db_unescape_string($string)
  * @param array $columns An array of the columns we're inserting the data into. Should contain 'column' => 'datatype' pairs
  * @param array $data The data to insert
  * @param array $keys The keys for the table
- * @param int returnmode 0 = nothing(default), 1 = last row id, 2 = all rows id as array; every mode runs only with method = ''
+ * @param int returnmode 0 = nothing(default), 1 = last row id, 2 = all rows id as array; every mode runs only with method = '' or 'insert'
  * @param resource $connection The connection to use (if null, $db_connection is used)
- * @return value of the first key, behavior based on returnmode
+ * @return mixed value of the first key, behavior based on returnmode. null if no data.
  */
 function smf_db_insert($method = 'replace', $table, $columns, $data, $keys, $returnmode = 0, $connection = null)
 {
-	global $db_in_transact, $smcFunc, $db_connection, $db_prefix;
+	global $smcFunc, $db_connection, $db_prefix;
 
 	$connection = $connection === null ? $db_connection : $connection;
 
@@ -763,7 +785,7 @@ function smf_db_insert($method = 'replace', $table, $columns, $data, $keys, $ret
 	$returning = '';
 	$with_returning = false;
 	// lets build the returning string, mysql allow only in normal mode
-	if(!empty($keys) && (count($keys) > 0) && $method == '' && $returnmode > 0)
+	if(!empty($keys) && (count($keys) > 0) && ($method === '' || $method === 'insert') && $returnmode > 0)
 	{
 		// we only take the first key
 		$returning = ' RETURNING '.$keys[0];
@@ -827,9 +849,9 @@ function smf_db_insert($method = 'replace', $table, $columns, $data, $keys, $ret
 			}
 		}
 	}
-	
+
 	if ($with_returning && !empty($return_var))
-		return $return_var; 
+		return $return_var;
 }
 
 /**

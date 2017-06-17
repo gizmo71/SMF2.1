@@ -7,7 +7,7 @@
  * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
- * @version 2.1 Beta 3
+ * @version 2.1 Beta 4
  */
 
 /*	This template is, perhaps, the most important template in the theme. It
@@ -81,7 +81,7 @@ function template_init()
  */
 function template_html_above()
 {
-	global $context, $settings, $scripturl, $txt, $modSettings, $mbname;
+	global $context, $scripturl, $txt, $modSettings;
 
 	// Show right to left, the language code, and the character set for ease of translating.
 	echo '<!DOCTYPE html>

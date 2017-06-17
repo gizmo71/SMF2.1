@@ -10,7 +10,7 @@
  * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
- * @version 2.1 Beta 3
+ * @version 2.1 Beta 4
  */
 
 if (!defined('SMF'))
@@ -768,7 +768,7 @@ function getXmlMembers($xml_format)
  * The returned array will be generated to match the xml_format.
  * @todo does not belong here
  *
- * @param $xml_format The XML format. Can be 'atom', 'rdf', 'rss', 'rss2' or 'smf'.
+ * @param string $xml_format The XML format. Can be 'atom', 'rdf', 'rss', 'rss2' or 'smf'.
  * @return array An array of arrays of topic data for the feed. Each array has keys corresponding to the tags for the specified format.
  */
 function getXmlNews($xml_format)
@@ -1610,7 +1610,7 @@ function getXmlRecent($xml_format)
  * which will be generated to match the xml_format.
  * @todo refactor.
  *
- * @param $xml_format The XML format. Can be 'atom', 'rdf', 'rss', 'rss2' or 'smf'
+ * @param string $xml_format The XML format. Can be 'atom', 'rdf', 'rss', 'rss2' or 'smf'
  * @return array An array profile data
  */
 function getXmlProfile($xml_format)

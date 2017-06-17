@@ -20,7 +20,7 @@ namespace TOTP;
  * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
- * @version 2.1 Beta 3
+ * @version 2.1 Beta 4
  */
 
 /**
@@ -177,7 +177,7 @@ class Auth
 	public function setRefresh($seconds)
 	{
 		if (!is_numeric($seconds)) {
-			throw \InvalidArgumentException('Seconds must be numeric');
+			throw new \InvalidArgumentException('Seconds must be numeric');
 		}
 		$this->refreshSeconds = $seconds;
 		return $this;

@@ -11,7 +11,7 @@
  * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
- * @version 2.1 Beta 3
+ * @version 2.1 Beta 4
  */
 
 if (!defined('SMF'))
@@ -465,7 +465,7 @@ function ShowDrafts($member_id, $topic = false, $draft_type = 0)
 		// Post drafts
 		if ($draft_type === 0)
 		{
-			$tmp_subject = shorten_subject(stripslashes($row['subject']), 24); 
+			$tmp_subject = shorten_subject(stripslashes($row['subject']), 24);
 			$context['drafts'][] = array(
 				'subject' => censorText($tmp_subject),
 				'poster_time' => timeformat($row['poster_time']),
@@ -490,7 +490,7 @@ function ShowDrafts($member_id, $topic = false, $draft_type = 0)
  * Returns an xml response to an autosave ajax request
  * provides the id of the draft saved and the time it was saved
  *
- * @param type $id_draft
+ * @param int $id_draft
  */
 function XmlDraft($id_draft)
 {
@@ -511,8 +511,8 @@ function XmlDraft($id_draft)
  * Uses the showdraft template
  * Allows for the deleting and loading/editing of drafts
  *
- * @param type $memID
- * @param type $draft_type
+ * @param int $memID
+ * @param int $draft_type
  */
 function showProfileDrafts($memID, $draft_type = 0)
 {
@@ -665,7 +665,7 @@ function showProfileDrafts($memID, $draft_type = 0)
  * Uses the showpmdraft template
  * Allows for the deleting and loading/editing of drafts
  *
- * @param type $memID
+ * @param int $memID
  */
 function showPMDrafts($memID = -1)
 {

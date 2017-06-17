@@ -7,7 +7,7 @@
  * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
- * @version 2.1 Beta 3
+ * @version 2.1 Beta 4
  */
 
 /**
@@ -33,7 +33,7 @@ function template_main()
 	}
 
 	// What view are we showing?
-	if ($context['calendar_view'] == 'view_list')
+	if ($context['calendar_view'] == 'viewlist')
 	{
 		echo '
 			<div id="main_grid">
@@ -41,7 +41,7 @@ function template_main()
 			</div>
 		';
 	}
-	elseif ($context['calendar_view'] == 'view_week')
+	elseif ($context['calendar_view'] == 'viewweek')
 	{
 		echo '
 			<div id="main_grid">
@@ -72,7 +72,7 @@ function template_main()
  */
 function template_show_upcoming_list($grid_name)
 {
-	global $context, $scripturl, $txt, $modSettings;
+	global $context, $scripturl, $txt;
 
 	// Bail out if we have nothing to work with
 	if (!isset($context['calendar_grid_' . $grid_name]))
@@ -242,7 +242,7 @@ function template_show_upcoming_list($grid_name)
  */
 function template_show_month_grid($grid_name, $is_mini = false)
 {
-	global $context, $settings, $txt, $scripturl, $modSettings;
+	global $context, $txt, $scripturl, $modSettings;
 
 	// If the grid doesn't exist, no point in proceeding.
 	if (!isset($context['calendar_grid_' . $grid_name]))
@@ -285,7 +285,7 @@ function template_show_month_grid($grid_name, $is_mini = false)
 				}
 
 				// Arguably the most exciting part, the title!
-				echo '<a href="', $scripturl, '?action=calendar;year=', $calendar_data['current_year'], ';month=', $calendar_data['current_month'], '">', $txt['months_titles'][$calendar_data['current_month']], ' ', $calendar_data['current_year'], '</a>';
+				echo '<a href="', $scripturl, '?action=calendar;', $context['calendar_view'], ';year=', $calendar_data['current_year'], ';month=', $calendar_data['current_month'], '">', $txt['months_titles'][$calendar_data['current_month']], ' ', $calendar_data['current_year'], '</a>';
 
 				echo '
 				</h3>
@@ -394,6 +394,8 @@ function template_show_month_grid($grid_name, $is_mini = false)
 				// The actual day number - be it a link, or just plain old text!
 				if (!empty($modSettings['cal_daysaslink']) && $context['can_post'])
 					echo '<a href="', $scripturl, '?action=calendar;sa=post;year=', $calendar_data['current_year'], ';month=', $calendar_data['current_month'], ';day=', $day['day'], ';', $context['session_var'], '=', $context['session_id'], '"><span class="day_text">', $title_prefix, $day['day'], '</span></a>';
+				elseif ($is_mini)
+					echo '<a href="', $scripturl, '?action=calendar;', $context['calendar_view'], ';year=', $calendar_data['current_year'], ';month=', $calendar_data['current_month'], ';day=', $day['day'], '"><span class="day_text">', $title_prefix, $day['day'], '</span></a>';
 				else
 					echo '<span class="day_text">', $title_prefix, $day['day'], '</span>';
 
@@ -527,7 +529,7 @@ function template_show_month_grid($grid_name, $is_mini = false)
  */
 function template_show_week_grid($grid_name)
 {
-	global $context, $settings, $txt, $scripturl, $modSettings;
+	global $context, $txt, $scripturl, $modSettings;
 
 	// We might have no reason to proceed, if the variable isn't there.
 	if (!isset($context['calendar_grid_' . $grid_name]))
@@ -538,7 +540,6 @@ function template_show_week_grid($grid_name)
 
 	// At the very least, we have one month. Possibly two, though.
 	$iteration = 1;
-	$num_months = count($calendar_data['months']);
 	foreach ($calendar_data['months'] as $month_data)
 	{
 		// For our first iteration, we'll add a nice header!
@@ -735,13 +736,13 @@ function template_calendar_top($calendar_data)
 	echo '
 		<div class="calendar_top roundframe', empty($calendar_data['disable_title']) ? ' noup' : '', '">
 			<div id="calendar_viewselector" class="buttonrow floatleft">
-				<a href="', $scripturl, '?action=calendar;viewlist;year=', $context['current_year'], ';month=', $context['current_month'], ';day=', $context['current_day'], '" class="button', $context['calendar_view'] == 'view_list' ? ' active' : '', '">', $txt['calendar_list'], '</a>
-				<a href="', $scripturl, '?action=calendar;viewmonth;year=', $context['current_year'], ';month=', $context['current_month'], '" class="button', $context['calendar_view'] == 'view_month' ? ' active' : '', '">', $txt['calendar_month'], '</a>
-				<a href="', $scripturl, '?action=calendar;viewweek;year=', $context['current_year'], ';month=', $context['current_month'], ';day=', $context['current_day'], '" class="button', $context['calendar_view'] == 'view_week' ? ' active' : '', '">', $txt['calendar_week'], '</a>
+				<a href="', $scripturl, '?action=calendar;viewlist;year=', $context['current_year'], ';month=', $context['current_month'], ';day=', $context['current_day'], '" class="button', $context['calendar_view'] == 'viewlist' ? ' active' : '', '">', $txt['calendar_list'], '</a>
+				<a href="', $scripturl, '?action=calendar;viewmonth;year=', $context['current_year'], ';month=', $context['current_month'], ';day=', $context['current_day'], '" class="button', $context['calendar_view'] == 'viewmonth' ? ' active' : '', '">', $txt['calendar_month'], '</a>
+				<a href="', $scripturl, '?action=calendar;viewweek;year=', $context['current_year'], ';month=', $context['current_month'], ';day=', $context['current_day'], '" class="button', $context['calendar_view'] == 'viewweek' ? ' active' : '', '">', $txt['calendar_week'], '</a>
 			</div>
 			', template_button_strip($context['calendar_buttons'], 'right');
 
-	if ($context['calendar_view'] == 'view_list')
+	if ($context['calendar_view'] == 'viewlist')
 	{
 		echo '
 			<form action="', $scripturl, '?action=calendar;viewlist" id="calendar_range" method="post" accept-charset="', $context['character_set'], '">

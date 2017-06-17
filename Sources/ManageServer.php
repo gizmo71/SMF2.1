@@ -56,7 +56,7 @@
  * @copyright 2017 Simple Machines and individual contributors
  * @license http://www.simplemachines.org/about/smf/license.php BSD
  *
- * @version 2.1 Beta 3
+ * @version 2.1 Beta 4
  */
 
 if (!defined('SMF'))
@@ -162,6 +162,8 @@ function ModifyGeneralSettings($return_config = false)
 		array('image_proxy_enabled', $txt['image_proxy_enabled'], 'file', 'check', null, 'image_proxy_enabled'),
 		array('image_proxy_secret', $txt['image_proxy_secret'], 'file', 'text', 30, 'image_proxy_secret'),
 		array('image_proxy_maxsize', $txt['image_proxy_maxsize'], 'file', 'int', null, 'image_proxy_maxsize'),
+		'',
+		array('enable_sm_stats', $txt['sm_state_setting'], 'db', 'check', null, 'enable_sm_stats'),
 	);
 
 	call_integration_hook('integrate_general_settings', array(&$config_vars));
@@ -177,6 +179,16 @@ function ModifyGeneralSettings($return_config = false)
 	if (isset($_REQUEST['save']))
 	{
 		call_integration_hook('integrate_save_general_settings');
+
+		// Are we saving the stat collection?
+		if (!empty($_POST['enable_sm_stats']) && empty($modSettings['sm_stats_key']))
+		{
+			$registerSMStats = registerSMStats();
+
+			// Failed to register, disable it again.
+			if (empty($registerSMStats))
+				$_POST['enable_sm_stats'] = 0;
+		}
 
 		saveSettings($config_vars);
 		$_SESSION['adm-save'] = true;
@@ -214,7 +226,7 @@ $(function()
  */
 function ModifyDatabaseSettings($return_config = false)
 {
-	global $scripturl, $context, $txt;
+	global $scripturl, $context, $txt, $smcFunc;
 
 	/* If you're writing a mod, it's a bad idea to add things here....
 		For each option:
@@ -229,6 +241,23 @@ function ModifyDatabaseSettings($return_config = false)
 		'',
 		array('autoFixDatabase', $txt['autoFixDatabase'], 'db', 'check', false, 'autoFixDatabase')
 	);
+
+	// Add PG Stuff
+	if ($smcFunc['db_title'] == "PostgreSQL")
+	{
+		$request = $smcFunc['db_query']('', 'SELECT cfgname FROM pg_ts_config', array());
+		$fts_language = array();
+
+		while ($row = $smcFunc['db_fetch_assoc']($request))
+			$fts_language[$row['cfgname']] = $row['cfgname'];
+
+		$config_vars = array_merge ($config_vars, array(
+				'',
+				array('search_language', $txt['search_language'], 'db', 'select', $fts_language, 'pgFulltextSearch')
+			)
+		);
+	}
+
 
 	call_integration_hook('integrate_database_settings', array(&$config_vars));
 
@@ -441,7 +470,7 @@ function ModifyGeneralSecuritySettings($return_config = false)
  */
 function ModifyCacheSettings($return_config = false)
 {
-	global $context, $scripturl, $txt, $cacheAPI;
+	global $context, $scripturl, $txt;
 
 	// Detect all available optimizers
 	$detected = loadCacheAPIs();
@@ -981,7 +1010,7 @@ function prepareDBSettingContext(&$config_vars)
  * - Requires the admin_forum permission.
  * - Contains arrays of the types of data to save into Settings.php.
  *
- * @param $config_vars An array of configuration variables
+ * @param array $config_vars An array of configuration variables
  */
 function saveSettings(&$config_vars)
 {
@@ -1319,6 +1348,55 @@ function loadCacheAPIs()
 	closedir($dh);
 
 	return $apis;
+}
+
+/**
+ * Registers the site with the Simple Machines Stat collection. This function
+ * purposely does not use updateSettings.php as it will be called shortly after
+ * this process completes by the saveSettings() function.
+ *
+ * @see Stats.php SMStats() for more information.
+ * @link https://www.simplemachines.org/about/stats.php for more info.
+ *
+ */
+function registerSMStats()
+{
+	global $modSettings, $boardurl, $smcFunc;
+
+	// Already have a key?  Can't register again.
+	if (!empty($modSettings['sm_stats_key']))
+		return true;
+
+	$fp = @fsockopen('www.simplemachines.org', 80, $errno, $errstr);
+	if ($fp)
+	{
+		$out = 'GET /smf/stats/register_stats.php?site=' . base64_encode($boardurl) . ' HTTP/1.1' . "\r\n";
+		$out .= 'Host: www.simplemachines.org' . "\r\n";
+		$out .= 'Connection: Close' . "\r\n\r\n";
+		fwrite($fp, $out);
+
+		$return_data = '';
+		while (!feof($fp))
+			$return_data .= fgets($fp, 128);
+
+		fclose($fp);
+
+		// Get the unique site ID.
+		preg_match('~SITE-ID:\s(\w{10})~', $return_data, $ID);
+
+		if (!empty($ID[1]))
+		{
+			$smcFunc['db_insert']('replace',
+				'{db_prefix}settings',
+				array('variable' => 'string', 'value' => 'string'),
+				array('sm_stats_key', $ID[1]),
+				array('variable')
+			);
+			return true;
+		}
+	}
+
+	return false;
 }
 
 ?>
