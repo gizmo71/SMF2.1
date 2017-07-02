@@ -52,7 +52,7 @@ function getBirthdayRange($low_date, $high_date)
 				'is_activated' => 1,
 				'no_month' => 0,
 				'no_day' => 0,
-				'year_one' => '0001',
+				'year_one' => '1004',
 				'year_low' => $year_low . '-%m-%d',
 				'year_high' => $year_high . '-%m-%d',
 				'low_date' => $low_date,
@@ -78,7 +78,7 @@ function getBirthdayRange($low_date, $high_date)
 				'is_activated' => 1,
 				'no_month' => 0,
 				'no_day' => 0,
-				'year_one' => '0001',
+				'year_one' => '1004',
 				'year_low' => $year_low . '-%m-%d',
 				'year_high' => $year_high . '-%m-%d',
 				'year_low_low_date' => $low_date,
@@ -99,7 +99,7 @@ function getBirthdayRange($low_date, $high_date)
 		$bday[$age_year . substr($row['birthdate'], 4)][] = array(
 			'id' => $row['id_member'],
 			'name' => $row['real_name'],
-			'age' => $row['birth_year'] > 4 && $row['birth_year'] <= $age_year ? $age_year - $row['birth_year'] : null,
+			'age' => $row['birth_year'] > 1004 && $row['birth_year'] <= $age_year ? $age_year - $row['birth_year'] : null,
 			'is_last' => false
 		);
 	}
@@ -136,7 +136,7 @@ function getEventRange($low_date, $high_date, $use_permissions = true)
 	$high_object = date_create($high_date);
 
 	// Find all the calendar info...
-	$result = $smcFunc['db_query']('', '
+	$result = $smcFunc['db_query']('calendar_get_events', '
 		SELECT
 			cal.id_event, cal.title, cal.id_member, cal.id_topic, cal.id_board,
 			cal.start_date, cal.end_date, cal.start_time, cal.end_time, cal.timezone, cal.location,
@@ -298,10 +298,10 @@ function getHolidayRange($low_date, $high_date)
 		array(
 			'low_date' => $low_date,
 			'high_date' => $high_date,
-			'all_year_low' => '0004' . substr($low_date, 4),
-			'all_year_high' => '0004' . substr($high_date, 4),
-			'all_year_jan' => '0004-01-01',
-			'all_year_dec' => '0004-12-31',
+			'all_year_low' => '1004' . substr($low_date, 4),
+			'all_year_high' => '1004' . substr($high_date, 4),
+			'all_year_jan' => '1004-01-01',
+			'all_year_dec' => '1004-12-31',
 		)
 	);
 	$holidays = array();
@@ -1604,7 +1604,7 @@ function buildEventDatetimes($row)
  */
 function getUserTimezone($id_member = null)
 {
-	global $smcFunc, $context, $user_info, $modSettings;
+	global $smcFunc, $context, $user_info, $modSettings, $user_settings;
 	static $member_cache = array();
 
 	if (is_null($id_member) && $user_info['is_guest'] == false)
@@ -1614,6 +1614,13 @@ function getUserTimezone($id_member = null)
 	if (isset($id_member) && isset($member_cache[$id_member]))
 	{
 		return $member_cache[$id_member];
+	}
+
+	//maybe the current user is the one
+	if (isset($user_settings['id_member']) && $user_settings['id_member'] == $id_member)
+	{
+		$member_cache[$id_member] = $user_settings['timezone'];
+		return $user_settings['timezone'];
 	}
 
 	if (isset($id_member))

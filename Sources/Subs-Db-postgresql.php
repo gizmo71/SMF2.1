@@ -128,12 +128,8 @@ function smf_db_replacement__callback($matches)
 	if ($matches[1] === 'db_prefix')
 		return $db_prefix;
 
-	if (!empty($user_info))
-	{
-		foreach (array_keys($user_info) as $key)
-			if (strpos($key, 'query_') !== false && $key === $matches[1])
-				return $user_info[$matches[1]];
-	}
+	if (isset($user_info[$matches[1]]) && strpos($matches[1], 'query_') !== false)
+		return $user_info[$matches[1]];
 
 	if ($matches[1] === 'empty')
 		return '\'\'';
@@ -347,8 +343,11 @@ function smf_db_query($identifier, $db_string, $db_values = array(), $connection
 	// Special optimizer Hints
 	$query_opt = array(
 		'load_board_info' => array(
-			'join_collapse_limit' => 1
-		)
+			'join_collapse_limit' => 1,
+		),
+		'calendar_get_events' => array(
+			'enable_seqscan' => 'off',
+		),
 	);
 
 	if (isset($replacements[$identifier]))
@@ -472,11 +471,17 @@ function smf_db_query($identifier, $db_string, $db_values = array(), $connection
 		$query_hints_set = '';
 		if (isset($query_hints['join_collapse_limit']))
 		{
-			$query_hints_set .= 'SET LOCAL join_collapse_limit = 1;';
+			$query_hints_set .= 'SET LOCAL join_collapse_limit = ' . $query_hints['join_collapse_limit'] . ';';
+		}
+		if (isset($query_hints['enable_seqscan']))
+		{
+			$query_hints_set .= 'SET LOCAL enable_seqscan = ' . $query_hints['enable_seqscan'] . ';';
 		}
 
-		$db_string = $query_hints_set .'
-		' . $db_string;
+		$db_string = $query_hints_set . $db_string;
+		
+		if (isset($db_show_debug) && $db_show_debug === true && $db_cache[$db_count]['q'] != '...')
+			$db_cache[$db_count]['q'] = "\t\t" . $db_string;
 	}
 
 	$db_last_result = @pg_query($connection, $db_string);
