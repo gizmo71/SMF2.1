@@ -451,7 +451,14 @@ function loadEssentialData()
 
 	// Get the database going!
 	if (empty($db_type) || $db_type == 'mysqli')
+	{
 		$db_type = 'mysql';
+		// If overriding $db_type, need to set its settings.php entry too
+		$changes = array();
+		$changes['db_type'] = '\'mysql\'';
+		require_once($sourcedir . '/Subs-Admin.php');
+		updateSettingsFile($changes);
+	}
 
 	if (file_exists($sourcedir . '/Subs-Db-' . $db_type . '.php'))
 	{
@@ -1086,10 +1093,6 @@ function UpgradeOptions()
 
 	if (empty($cachedir) || substr($cachedir, 0, 1) == '.')
 		$changes['cachedir'] = '\'' . fixRelativePath($boarddir) . '/cache\'';
-
-	// Not had the database type added before?
-	if (empty($db_type))
-		$changes['db_type'] = 'mysql';
 
 	// If they have a "host:port" setup for the host, split that into separate values
 	// You should never have a : in the hostname if you're not on MySQL, but better safe than sorry
@@ -2362,14 +2365,19 @@ Usage: /path/to/php -f ' . basename(__FILE__) . ' -- [OPTION]...
 		print_error('Error: Some files have not yet been updated properly.');
 
 	// Make sure Settings.php is writable.
-		quickFileWritable($boarddir . '/Settings.php');
+	quickFileWritable($boarddir . '/Settings.php');
 	if (!is_writable($boarddir . '/Settings.php'))
 		print_error('Error: Unable to obtain write access to "Settings.php".', true);
 
 	// Make sure Settings_bak.php is writable.
-		quickFileWritable($boarddir . '/Settings_bak.php');
+	quickFileWritable($boarddir . '/Settings_bak.php');
 	if (!is_writable($boarddir . '/Settings_bak.php'))
 		print_error('Error: Unable to obtain write access to "Settings_bak.php".');
+
+	// Make sure db_last_error.php is writable.
+	quickFileWritable($boarddir . '/db_last_error.php');
+	if (!is_writable($boarddir . '/db_last_error.php'))
+		print_error('Error: Unable to obtain write access to "db_last_error.php".');
 
 	if (isset($modSettings['agreement']) && (!is_writable($boarddir) || file_exists($boarddir . '/agreement.txt')) && !is_writable($boarddir . '/agreement.txt'))
 		print_error('Error: Unable to obtain write access to "agreement.txt".');
