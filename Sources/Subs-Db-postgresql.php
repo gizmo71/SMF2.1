@@ -60,6 +60,7 @@ function smf_db_initiate($db_server, $db_name, $db_user, $db_passwd, &$db_prefix
 			'db_is_resource' => 'is_resource',
 			'db_mb4' => true,
 			'db_ping' => 'pg_ping',
+			'db_fetch_all' => 'smf_db_fetch_all',
 		);
 
 	if (!empty($db_options['persist']))
@@ -688,7 +689,7 @@ function smf_db_unescape_string($string)
  * @param array $columns An array of the columns we're inserting the data into. Should contain 'column' => 'datatype' pairs
  * @param array $data The data to insert
  * @param array $keys The keys for the table
- * @param int returnmode 0 = nothing(default), 1 = last row id, 2 = all rows id as array; every mode runs only with method = '' or 'insert'
+ * @param int returnmode 0 = nothing(default), 1 = last row id, 2 = all rows id as array; every mode runs only with method != 'ignore'
  * @param resource $connection The connection to use (if null, $db_connection is used)
  * @return mixed value of the first key, behavior based on returnmode. null if no data.
  */
@@ -790,7 +791,7 @@ function smf_db_insert($method = 'replace', $table, $columns, $data, $keys, $ret
 	$returning = '';
 	$with_returning = false;
 	// lets build the returning string, mysql allow only in normal mode
-	if(!empty($keys) && (count($keys) > 0) && ($method === '' || $method === 'insert') && $returnmode > 0)
+	if (!empty($keys) && (count($keys) > 0) && $returnmode > 0)
 	{
 		// we only take the first key
 		$returning = ' RETURNING '.$keys[0];
@@ -955,6 +956,18 @@ function smf_db_escape_wildcard_string($string, $translate_human_wildcards = fal
 		);
 
 	return strtr($string, $replacements);
+}
+
+/**
+ * Fetches all rows from a result as an array 
+ *
+ * @param resource $request A PostgreSQL result resource
+ * @return array An array that contains all rows (records) in the result resource
+ */
+function smf_db_fetch_all($request)
+{
+	// Return the right row.
+	return @pg_fetch_all($request);
 }
 
 ?>
