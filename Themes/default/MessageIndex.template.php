@@ -124,8 +124,11 @@ function template_main()
 
 		echo '
 	<div class="pagesection">
-		', $context['menu_separator'], '<a href="#bot" class="topbottom floatleft">', $txt['go_down'], '</a>
-		<div class="pagelinks floatleft">', $context['page_index'], '</div>
+		', $context['menu_separator'], '
+		<div class="pagelinks floatleft">
+			<a href="#bot" class="button">', $txt['go_down'], '</a>
+			', $context['page_index'], '
+		</div>
 		', template_button_strip($context['normal_buttons'], 'right'), '
 	</div>';
 
@@ -183,7 +186,7 @@ function template_main()
 			// Show a "select all" box for quick moderation?
 			if (!empty($context['can_quick_mod']) && $options['display_quick_mod'] == 1)
 				echo '
-					<div class="moderation"><input type="checkbox" onclick="invertAll(this, this.form, \'topics[]\');" class="input_check"></div>';
+					<div class="moderation"><input type="checkbox" onclick="invertAll(this, this.form, \'topics[]\');"></div>';
 
 			// If it's on in "image" mode, don't show anything but the column.
 			elseif (!empty($context['can_quick_mod']))
@@ -267,7 +270,7 @@ function template_main()
 					<div class="moderation">';
 				if ($options['display_quick_mod'] == 1)
 					echo '
-						<input type="checkbox" name="topics[]" value="', $topic['id'], '" class="input_check">';
+						<input type="checkbox" name="topics[]" value="', $topic['id'], '">';
 				else
 				{
 					// Check permissions on each and show only the ones they are allowed to use.
@@ -338,8 +341,11 @@ function template_main()
 		echo '
 	<div class="pagesection">
 		', template_button_strip($context['normal_buttons'], 'right'), '
-		', $context['menu_separator'], '<a href="#main_content_section" class="topbottom floatleft" id="bot">', $txt['go_up'], '</a>
-		<div class="pagelinks floatleft">', $context['page_index'], '</div>
+		', $context['menu_separator'], '
+		<div class="pagelinks floatleft">
+			<a href="#main_content_section" class="button" id="bot">', $txt['go_up'], '</a>
+			', $context['page_index'], '
+		</div>
 	</div>';
 	}
 

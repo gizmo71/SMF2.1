@@ -1868,16 +1868,15 @@ function parse_bbc($message, $smileys = true, $cache_id = '', $parse_tags = arra
 			// Take care of some HTML!
 			if (!empty($modSettings['enablePostHTML']) && strpos($data, '&lt;') !== false)
 			{
-				$data = preg_replace('~&lt;a\s+href=((?:&quot;)?)((?:https?://|ftps?://|mailto:)\S+?)\\1&gt;~i', '[url=&quot;$2&quot;]', $data);
-				$data = preg_replace('~&lt;/a&gt;~i', '[/url]', $data);
-
+				$data = preg_replace('~&lt;a\s+href=((?:&quot;)?)((?:https?://|ftps?://|mailto:|tel:)\S+?)\\1&gt;(.*?)&lt;/a&gt;~i', '[url=&quot;$2&quot;]$3[/url]', $data);
+				
 				// <br> should be empty.
 				$empty_tags = array('br', 'hr');
 				foreach ($empty_tags as $tag)
-					$data = str_replace(array('&lt;' . $tag . '&gt;', '&lt;' . $tag . '/&gt;', '&lt;' . $tag . ' /&gt;'), '[' . $tag . ' /]', $data);
+					$data = str_replace(array('&lt;' . $tag . '&gt;', '&lt;' . $tag . '/&gt;', '&lt;' . $tag . ' /&gt;'), '<' . $tag . '>', $data);
 
 				// b, u, i, s, pre... basic tags.
-				$closable_tags = array('b', 'u', 'i', 's', 'em', 'ins', 'del', 'pre', 'blockquote');
+				$closable_tags = array('b', 'u', 'i', 's', 'em', 'ins', 'del', 'pre', 'blockquote', 'strong');
 				foreach ($closable_tags as $tag)
 				{
 					$diff = substr_count($data, '&lt;' . $tag . '&gt;') - substr_count($data, '&lt;/' . $tag . '&gt;');
@@ -2068,8 +2067,8 @@ function parse_bbc($message, $smileys = true, $cache_id = '', $parse_tags = arra
 						}, $data);
 					}
 
-					// Next, emails...
-					if (!isset($disabled['email']) && strpos($data, '@') !== false && strpos($data, '[email') === false)
+					// Next, emails...  Must be careful not to step on enablePostHTML logic above...
+					if (!isset($disabled['email']) && strpos($data, '@') !== false && strpos($data, '[email') === false && stripos($data, 'mailto:') === false)
 					{
 						$email_regex = '
 						# Preceded by a non-domain character or start of line
@@ -5583,6 +5582,10 @@ function smf_json_decode($json, $returnAsArray = false, $logIt = true)
 /**
  * Check the given String if he is a valid IPv4 or IPv6
  * return true or false
+ *
+ * @param string $IPString
+ *
+ * @return bool
  */
 function isValidIP($IPString)
 {
@@ -5850,7 +5853,7 @@ function set_tld_regex($update = false)
  *
  * @param array $strings An array of strings to make a regex for.
  * @param string $delim An optional delimiter character to pass to preg_quote().
- * @param string $returnArray If true, returns an array of regexes.
+ * @param bool $returnArray If true, returns an array of regexes.
  * @return string|array One or more regular expressions to match any of the input strings.
  */
 function build_regex($strings, $delim = null, $returnArray = false)

@@ -134,7 +134,7 @@ $txt['security_wrong'] = 'Administration login attempt!' . "\n" . 'Referrer: %1$
 
 $txt['email_preview_warning'] = 'The preview is not 100% accurate. In order to preserve the functionality of the page only the basic html tags are represented';
 $txt['email_as_html'] = 'Send in HTML format. (with this you can put normal HTML in the email.)';
-$txt['email_parsed_html'] = 'Add &lt;br /&gt;s and &amp;nbsp;s to this message.';
+$txt['email_parsed_html'] = 'Add &lt;br&gt;s and &amp;nbsp;s to this message.';
 $txt['email_variables'] = 'In this message you can use a few &quot;variables&quot;. Click <a href="' . $scripturl . '?action=helpadmin;help=email_members" onclick="return reqOverlayDiv(this.href);" class="help">here</a> for more information.';
 $txt['email_force'] = 'Send this to members even if they have chosen not to receive announcements.';
 $txt['email_as_pms'] = 'Send this to these groups using personal messages.';
@@ -377,7 +377,7 @@ $txt['attach_dir_empty'] = 'Empty';
 $txt['attach_dir_ok'] = 'OK';
 $txt['attach_dir_basedir'] = 'Base directory';
 $txt['attach_dir_desc'] = 'Create new directories or change the current directory below. <br>To create a new directory within the forum directory structure, use just the directory name. <br>To remove a directory, blank the path input field. Only empty directories can be removed. To see if a directory is empty, check for files or sub-directories in brackets next to the file count. <br> To rename a directory, simply change its name in the input field. Only directories without sub-directories may be renamed. Directories can be renamed as long as they do not contain a sub-directory.';
-$txt['attach_dir_base_desc'] = 'You may use below to change the current base directory or create a new one. New base directories are also added to the Attachment Directory list. You may also designate an existing directory to be a base directory.';
+$txt['attach_dir_base_desc'] = 'You may use the area below to change the current base directory or create a new one. New base directories are also added to the Attachment Directory list. You may also designate an existing directory to be a base directory.';
 $txt['attach_dir_save_problem'] = 'Oops, there seems to be a problem.';
 $txt['attachments_no_create'] = 'Unable to create a new attachment directory. Please do so using a FTP client or your site file manager.';
 $txt['attachments_no_write'] = 'This directory has been created but is not writable. Please attempt to do so using a FTP client or your site file manager.';
@@ -627,7 +627,7 @@ $txt['phpinfo_defaultsettings'] = 'Default Settings';
 $txt['phpinfo_itemsettings'] = 'Settings';
 
 $txt['language_configuration'] = 'Languages';
-$txt['language_description'] = 'This section allows you to edit languages installed on your forum, download new ones from the Simple Machines website. You may also edit language-related settings here.';
+$txt['language_description'] = 'This section allows you to edit languages installed on your forum and download new ones from the Simple Machines website. You may also edit language-related settings here.';
 $txt['language_edit'] = 'Edit Languages';
 $txt['language_add'] = 'Add Language';
 $txt['language_settings'] = 'Settings';

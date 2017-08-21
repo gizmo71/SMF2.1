@@ -301,7 +301,7 @@ function ModifyCookieSettings($return_config = false)
 		array('localCookies', $txt['localCookies'], 'db', 'check', false, 'localCookies'),
 		array('globalCookies', $txt['globalCookies'], 'db', 'check', false, 'globalCookies'),
 		array('globalCookiesDomain', $txt['globalCookiesDomain'], 'db', 'text', false, 'globalCookiesDomain'),
-		array('secureCookies', $txt['secureCookies'], 'db', 'check', false, 'secureCookies', 'disabled' => !isset($_SERVER['HTTPS']) || !(strtolower($_SERVER['HTTPS']) == 'on' || strtolower($_SERVER['HTTPS']) == '1')),
+		array('secureCookies', $txt['secureCookies'], 'db', 'check', false, 'secureCookies', 'disabled' => !isset($_SERVER['HTTPS']) || strtolower($_SERVER['HTTPS']) != 'on'),
 		array('httponlyCookies', $txt['httponlyCookies'], 'db', 'check', false, 'httponlyCookies'),
 		'',
 		// Sessions
@@ -317,7 +317,7 @@ function ModifyCookieSettings($return_config = false)
 			2 => $txt['tfa_mode_forced'],
 		)) + (empty($user_settings['tfa_secret']) ? array() : array(
 			3 => $txt['tfa_mode_forcedall'],
-		)), 'subtext' => $txt['tfa_mode_subtext'] . (empty($user_settings['tfa_secret']) ? '<br /><strong>' . $txt['tfa_mode_forced_help'] . '</strong>' : ''), 'tfa_mode'),
+		)), 'subtext' => $txt['tfa_mode_subtext'] . (empty($user_settings['tfa_secret']) ? '<br><strong>' . $txt['tfa_mode_forced_help'] . '</strong>' : ''), 'tfa_mode'),
 	);
 
 	addInlineJavaScript('
